@@ -1,8 +1,9 @@
 module CHAPTER02
 
-using Random, ProgressBars, Plots, Colors
+using Random, ProgressBars, Plots, Statistics
 
-export Perceptron, fit!, plot_decision_region
+export Perceptron, Adaline 
+export fitGD!, fitSGD!, plot_decision_region
 
 """Perceptron classifier"""
 @kwdef mutable struct Perceptron
@@ -12,13 +13,13 @@ export Perceptron, fit!, plot_decision_region
 end
 
 """Return class label"""
-(p::Perceptron)(X::Matrix) = (X * p.w .+ p.b) .≥ 0.0
-(p::Perceptron)(x::Vector) = (x' * p.w + p.b) ≥ 0.0 ? 1 : 0
+(m::Perceptron)(X::Matrix) = (X * m.w .+ m.b) .≥ 0.0
+(m::Perceptron)(x::Vector) = (x' * m.w + m.b) ≥ 0.0 ? 1 : 0
 
-function fit!(model::Perceptron, X, y; 
-              η=0.01, num_iter=100, random_seed=1)   
+function fitSGD!(model::Perceptron, X, y; 
+              η=0.01, num_iter=50, random_seed=1)   
     Random.seed!(random_seed)
-    model.w = randn(size(X, 2)) ./ 1_000
+    model.w = randn(size(X, 2)) ./ 100
     model.b = 0.0
     model.errors = Float64[]
 
@@ -56,10 +57,64 @@ function plot_decision_region(model, X, y, resolution=0.02)
              colormap=:plasma, 
              alpha=0.1)
     scatter!(X[:, 1], X[:, 2],
-            group = y,
-            xlabel="Sepal Length (cm)",
-            ylabel="Petal Length (cm)")
+            group = y)
 end
 
+@kwdef mutable struct Adaline
+    w::Vector{Float64} = []
+    b::Float64 = 0.0
+    losses::Vector{Float64} = []
+end
+
+(m::Adaline)(X::Matrix) = (X * m.w .+ m.b)
+(m::Adaline)(x::Vector) = (x' * m.w + m.b) ≥ 0.5 ? 1 : 0
+
+
+function fitGD!(model::Adaline, X, y; 
+              η=0.01, num_iter=50, random_seed=1) 
+    Random.seed!(random_seed)
+    model.w = randn(size(X, 2)) ./ 100
+    model.b = 0.0
+    model.losses = Float64[]
+    for _ in ProgressBar(1:num_iter)
+        ypreds = model(X)
+        errors = (y .- ypreds)
+        model.w += η * 2.0 * (X' * errors) ./ size(X, 1)
+        model.b += η * 2.0 * mean(errors)
+        loss = mean(errors .^ 2)
+        push!(model.losses, loss)
+    end
+end
+
+function fitSGD!(model::Adaline, X, y; 
+                 η=0.01, num_iter=10, shuffle=true, random_seed=1)   
+    
+    Random.seed!(random_seed)
+    X_ = copy(X)
+    y_ = copy(y)
+    model.w = randn(size(X_, 2)) ./ 100
+    model.b = 0.0
+    model.losses = Float64[]   
+
+    for _ in ProgressBar(1:num_iter)
+        if shuffle==true        
+            perm = randperm(length(y))
+            X_ = X_[perm, :]
+            y_ = y_[perm]
+        end
+        losses = []
+        for i in 1:length(y)
+            xi = X_[i, :]
+            yi = y_[i]
+            ypred = xi' * model.w + model.b
+            error = yi - ypred
+            model.w += η * 2.0 * xi * error
+            model.b += η * 2.0 * error
+            loss = error^2
+            push!(losses, loss)
+        end        
+        push!(model.losses, mean(losses))
+    end    
+end
 
 end # of Module CHAPTER02

@@ -94,7 +94,7 @@ function fitSGD!(model::Adaline, X, y;
     y_ = copy(y)
     model.w = randn(size(X_, 2)) ./ 100
     model.b = 0.0
-    model.losses = Float64[]   
+    model.losses = Float64[]
 
     for _ in ProgressBar(1:num_iter)
         if shuffle==true        

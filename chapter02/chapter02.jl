@@ -82,7 +82,7 @@ begin
     p1 = plot_decision_region(ada_sgd, X_std, y);
     xlabel!(p1, "Sepal Length (standardized)");
     ylabel!(p1, "Petal Length (standardized)");
-    title!(p1, "Adaline - Gradient Descent");
+    title!(p1, "Adaline - SGD");
     p2 = plot(1:length(ada_sgd.losses), ada_sgd.losses,
               xlabel="Epochs",
               ylabel="Mean squared error",

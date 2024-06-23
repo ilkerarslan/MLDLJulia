@@ -1,39 +1,42 @@
-include("chapter02_module.jl")
+include("mod02.jl")
 using .CHAPTER02
+using .CHAPTER02: OptimAlgorithm, SGD, BatchGD, MiniBatchGD
 using DataFrames, RDatasets, Plots, Colors, Random, Statistics
 
 # Data
-iris = dataset("datasets", "iris");
-iris
-
+iris = dataset("datasets", "iris")
 X = iris[1:100, [:SepalLength, :PetalLength]] |> Matrix
 y = (iris.Species[1:100] .== "setosa") .|> Int
 
 scatter(X[:, 1], X[:, 2],
         group=iris[1:100, :Species],
         xlabel="Sepal Length (cm)",
-        ylabel="Petal Length (cm)")
+        ylabel="Petal Length (cm)",
+        title="Iris Dataset: Setosa vs. Versicolor")
 
-# Perceptron
 pn = Perceptron()
-fitSGD!(pn, X, y; η=0.1, num_iter=10)
+fit!(pn, X, y, η=0.1, num_iter=10, optim_alg=SGD)
 
 begin
-    plot(1:length(pn.errors), pn.errors)
-    scatter!(1:length(pn.errors), pn.errors, legend=false)
-    xlabel!("Epochs")
-    ylabel!("Errors")
-    
+    plot(1:length(pn.losses), pn.losses,
+    xlabel="Epochs", ylabel="Errors",
+    title="Perceptron Training Errors",
+    legend=false)
+    scatter!(1:length(pn.losses), pn.losses)
+end
+
+begin
     plot_decision_region(pn, X, y)
     xlabel!("Sepal Length (cm)")
-    ylabel!("Petal Length (cm)")                
+    ylabel!("Petal Length (cm)")
+    title!("Perceptron Decision Boundary")
 end
 
 # Adaline
 ada1 = Adaline()
-fitGD!(ada1, X, y, η=0.1, num_iter=15)
+fit!(ada1, X, y, η=0.1, num_iter=15, optim_alg=BatchGD)
 ada2 = Adaline()
-fitGD!(ada2, X, y, η=0.0001, num_iter=15)
+fit!(ada2, X, y, η=0.0001, num_iter=15, optim_alg=BatchGD)
 
 begin
     layout = @layout [a b]
@@ -57,7 +60,7 @@ X_std[:, 1] = (X_std[:, 1] .- mean(X_std[:, 1])) ./ std(X_std[:, 1])
 X_std[:, 2] = (X_std[:, 2] .- mean(X_std[:, 2])) ./ std(X_std[:, 2]) 
 
 ada_gd = Adaline()
-fitGD!(ada_gd, X_std, y, η=0.5, num_iter=20)
+fit!(ada_gd, X_std, y, η=0.5, num_iter=20, optim_alg=BatchGD)
 
 begin
     layout = @layout [a b]
@@ -73,9 +76,10 @@ begin
     plot(p1, p2, layout=layout)        
 end
 
-# Stochastic gradient Descent
+
+# Stochastic Gradient Descent
 ada_sgd = Adaline()
-fitSGD!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1)
+fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1, optim_alg=SGD)
 
 begin
     layout = @layout [a b]

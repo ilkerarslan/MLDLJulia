@@ -68,3 +68,19 @@ MLJ_VERSION
 
 models("Tree")
 models("Perceptron")
+
+
+using Plots, LaTeXStrings
+
+# Define the function
+f(x, y) = x^3 + 2y^3 - 5x*y
+
+# Create a range of x and y values
+x = range(-5, 5, length=600)
+y = range(-5, 5, length=600)
+
+# Create the contour plot
+contour(x, y, f, levels=[0], color=:blue, linewidth=2, 
+        xlabel=L"x", ylabel=L"y", title=L"x^3 + 2y^3 = 5xy",
+        legend=false)
+

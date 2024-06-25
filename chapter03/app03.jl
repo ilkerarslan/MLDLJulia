@@ -1,3 +1,5 @@
+include("mod03.jl")
+using .CHAPTER03
 using Random, Plots, DataFrames, StatsBase
 using MLJ
 
@@ -32,71 +34,52 @@ Xtst_std = MLJ.transform(mach, Xtst)
 models(matching(X, y))
 models("Perceptron")
 
-doc("PerceptronClassifier", pkg="BetaML")
-Model = @load PerceptronClassifier pkg=BetaML
+doc("KernelPerceptronClassifier", pkg="BetaML")
+Model = @load KernelPerceptronClassifier pkg=BetaML
 pcl = Model()
 mach = machine(pcl, Xtrn_std, ytrn);
 fit!(mach)
 
-X = vcat(Xtrn_std, Xtst_std)
-y = vcat(ytrn, ytst)
+ŷ = MLJ.predict(mach, Xtst_std)
 
-ŷ = MLJ.predict(mach, X)
-
-print("Misclassified examples: $(sum(y .!= mode.(ŷ)))")
-MLJ.accuracy(y, MLJ.mode.(ŷ))
+print("Misclassified examples: $(sum(ytst .!= mode.(ŷ)))")
+MLJ.accuracy(ytst, MLJ.mode.(ŷ))
 evaluate!(mach, resampling=Holdout(fraction_train=0.7),
          measures=[log_loss, accuracy],
          verbosity=0)
 
-resolution = 0.02
-classifier = mach
+X = vcat(Xtrn_std, Xtst_std)
+y = vcat(ytrn, ytst)
+plot_decision_regions(X, y, mach, test_idx=105:150, length=500)
 
-# Plot the decision surface
-x1_min, x1_max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1
-x2_min, x2_max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
-xx1 = range(x1_min, x1_max, length=300)
-xx2 = range(x2_min, x2_max, length=300)
+# Logistic Regression
 
-Z = [predict_mode(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]
-p = contourf(xx1, xx2, Z, color=:RdYlBu, alpha=0.3, legend=false)
-
-#######################################################################
-using Plots
-test_idx = 105:150
-markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-colors = [:red, :blue, :lightgreen, :gray, :cyan]
-
-# Plot the decision surface
-x1_min, x1_max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1
-x2_min, x2_max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
-xx1 = range(x1_min, x1_max, length=300)
-xx2 = range(x2_min, x2_max, length=300)
-
-Z = [(predict_mode(mach, reshape([x1, x2], 1, 2))[1]) for x1 in xx1, x2 in xx2]
-
-color_map = Dict("setosa" => 1, "versicolor" => 2, "virginica" => 3)
-Z_numeric = [color_map[z] for z in Z]
-
-p = contourf(xx1, xx2, Z_numeric, color=[:red, :blue, :lightgreen], levels=3, alpha=0.3, legend=false);
-
-# Plot data points
-for (i, cl) in enumerate(unique(y))
-    idx = findall(y .== cl)
-    scatter!(p, X[idx, 1], X[idx, 2], color=colors[i], marker=markers[i], label="Class $cl", ms=4)
+function sigmoid(z)
+    return 1.0 ./ (1.0 .+ exp.(-z))
 end
 
-# Highlight test examples
-if !isempty(test_idx)
-    X_test, y_test = X[test_idx, :], y[test_idx]
-    scatter!(p, X_test[:, 1], X_test[:, 2],
-             marker=:circle,
-             mc=:black, ms=5,
-             label="Test set",
-             markersize=6)
-end
+z = range(-7, 7, step=0.1)
+sigma_z = sigmoid(z)
 
-xlabel!("Petal length (standardized)")
-ylabel!("Petal width (standardized)")
-title!("Decision Regions with Perceptron")
-plot!(legend=:topleft)
+plot(z, sigma_z, label="σ(z)", legend=false)
+vline!([0.0], color=:black)
+ylims!(-0.1, 1.1)
+xlabel!("z")
+ylabel!("σ(z)")
+yticks!([0.0, 0.5, 1.0])
+plot!(grid=true, gridalpha=0.5, gridstyle=:dash, minorgrid=true)
+plot!(size=(600, 400), margin=3Plots.mm)
+
+loss_y(z, y) = y==1 ? -log(sigmoid(z)) : -log(1-sigmoid(z))
+
+z = -10:0.1:10;
+sigma_z = sigmoid(z)
+c0 = [loss_y(x, 0) for x in z]
+c1 = [loss_y(x, 1) for x in z]
+
+plot(sigma_z, [c0, c1],
+     label=["L(w,b) if y=1" "L(w,b) if y=0"],
+     ylims=(0.0, 5.1),
+     legend=:top,
+     linestyle=[:solid :dash],
+     linewidth=2)

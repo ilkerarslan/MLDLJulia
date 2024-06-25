@@ -8,7 +8,7 @@ iris = MLJ.load_iris()
 MLJ.selectrows(iris, 1:3) |> MLJ.pretty
 MLJ.schema(iris)
 iris = DataFrames.DataFrame(iris)
-y, X = MLJ.unpack(iris, ==(:target), rng=123)
+y, X = MLJ.unpack(iris, ==(:target))
 X = X[:, 3:4]
 MLJ.first(X, 3) |> MLJ.pretty
 
@@ -38,7 +38,7 @@ doc("KernelPerceptronClassifier", pkg="BetaML")
 Model = @load KernelPerceptronClassifier pkg=BetaML
 pcl = Model()
 mach = machine(pcl, Xtrn_std, ytrn);
-fit!(mach)
+MLJ.fit!(mach)
 
 ŷ = MLJ.predict(mach, Xtst_std)
 
@@ -61,14 +61,16 @@ end
 z = range(-7, 7, step=0.1)
 sigma_z = sigmoid(z)
 
-plot(z, sigma_z, label="σ(z)", legend=false)
-vline!([0.0], color=:black)
-ylims!(-0.1, 1.1)
-xlabel!("z")
-ylabel!("σ(z)")
-yticks!([0.0, 0.5, 1.0])
-plot!(grid=true, gridalpha=0.5, gridstyle=:dash, minorgrid=true)
-plot!(size=(600, 400), margin=3Plots.mm)
+begin
+    plot(z, sigma_z, label="σ(z)", legend=false)
+    vline!([0.0], color=:black)
+    ylims!(-0.1, 1.1)
+    xlabel!("z")
+    ylabel!("σ(z)")
+    yticks!([0.0, 0.5, 1.0])
+    plot!(grid=true, gridalpha=0.5, gridstyle=:dash, minorgrid=true)
+    plot!(size=(600, 400), margin=3Plots.mm)        
+end
 
 loss_y(z, y) = y==1 ? -log(sigmoid(z)) : -log(1-sigmoid(z))
 
@@ -83,3 +85,27 @@ plot(sigma_z, [c0, c1],
      legend=:top,
      linestyle=[:solid :dash],
      linewidth=2)
+
+idx = (ytrn .== "setosa") .|| (ytrn .== "versicolor")
+Xtrn01_subset = Xtrn_std[idx, :] |> Matrix
+ytrn01_subset = ytrn[idx]
+ytrn01_subset = [x == "setosa" ? 0 : 1 for x in ytrn01_subset]
+
+lrgd = LogisticRegression()
+fitmodel!(lrgd, Xtrn01_subset, ytrn01_subset,
+          η=0.3, num_iter=1000, seed=1)
+
+plot_decision_regions(Xtrn01_subset, ytrn01_subset, lrgd)
+
+# Logistic Regression with MLJ
+models("Logistic")
+MNModel = @load MultinomialClassifier pkg=MLJLinearModels
+doc("MultinomialClassifier", pkg="MLJLinearModels")
+solver = MLJLinearModels.LBFGS()
+lr = MNModel(solver=solver)
+mach = machine(lr, Xtrn_std, ytrn)
+fit!(mach)
+
+Xcomb_std = vcat(Xtrn_std, Xtst_std)
+ycomb = vcat(ytrn, ytst)
+plot_decision_regions(Xcomb_std, ycomb, mach; test_idx=105:150)

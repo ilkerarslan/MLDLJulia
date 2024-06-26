@@ -111,11 +111,6 @@ function plot_decision_regions(X, y, mach; test_idx=Int[], length=300)
                  label="Test set",
                  markersize=6)
     end
-
-    xlabel!("Petal length (standardized)")
-    ylabel!("Petal width (standardized)")
-    title!("Decision Regions with Perceptron")
-    plot!(legend=:topleft)
 end
 
 function plot_decision_regions(X, y, m::LogisticRegression; test_idx=Int[], length=300)
@@ -150,8 +145,7 @@ function plot_decision_regions(X, y, m::LogisticRegression; test_idx=Int[], leng
     end
     
     xlabel!("Petal length (standardized)")
-    ylabel!("Petal width (standardized)")
-    title!("Decision Regions with Perceptron")
+    ylabel!("Petal width (standardized)")    
     plot!(legend=:topleft)
 end
  

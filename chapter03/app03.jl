@@ -1,7 +1,7 @@
 include("mod03.jl")
 using .CHAPTER03
 using Random, Plots, DataFrames, StatsBase
-using MLJ
+using MLJ, MLJLinearModels, Optim
 
 # Load data
 iris = MLJ.load_iris()
@@ -84,7 +84,9 @@ plot(sigma_z, [c0, c1],
      ylims=(0.0, 5.1),
      legend=:top,
      linestyle=[:solid :dash],
-     linewidth=2)
+     linewidth=2,
+     xlabel="σ(z)",
+     ylabel="L(w,b)")
 
 idx = (ytrn .== "setosa") .|| (ytrn .== "versicolor")
 Xtrn01_subset = Xtrn_std[idx, :] |> Matrix
@@ -109,3 +111,95 @@ fit!(mach)
 Xcomb_std = vcat(Xtrn_std, Xtst_std)
 ycomb = vcat(ytrn, ytst)
 plot_decision_regions(Xcomb_std, ycomb, mach; test_idx=105:150)
+
+
+# Tackling overfitting via regularization
+doc("LogisticClassifier", pkg="MLJLinearModels")
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
+
+wpl = []
+wpw = []
+params = []
+solver = MLJLinearModels.LBFGS()
+
+for c in -5:0.5:5    
+    model = LogisticClassifier(penalty=:l2, lambda=10.0^-c,
+                               solver=solver)    
+    mach = machine(model, Xtrn_std, ytrn) |> fit!;
+    w = MLJ.fitted_params(mach).coefs
+  
+    push!(wpl, w[1][2][2])
+    push!(wpw, w[2][2][2])
+    push!(params, 10.0^c)
+end
+
+plot(params, [wpl wpw], xscale=:log10, 
+     label = ["Petal length" "Petal width"],
+     legend=:bottomleft,
+     lw=2)
+
+# Maximum margin classification with support vector machines
+using LIBSVM
+models("SVC")
+SVC = @load ProbabilisticSVC pkg=LIBSVM
+doc("ProbabilisticSVC", pkg="LIBSVM")
+Random.seed!(1)
+svm = SVC(kernel=LIBSVM.Kernel.Linear, cost=1.0)
+mach = machine(svm, Xtrn_std, ytrn) |> fit!;
+plot_decision_regions(X, y, mach, test_idx=105:150)
+
+# Solving nonlinear problems using a kernel SVM
+using Distributions
+
+Random.seed!(1)
+X_xor = rand(Normal(0, 1), (200, 2))
+y_xor = xor.(X_xor[:, 1] .> 0, X_xor[:, 2] .> 0)
+y_xor = Int.(y_xor) 
+
+begin
+    scatter(X_xor[y_xor.==1, 1], X_xor[y_xor.==1, 2],
+            color=:royalblue, marker=:square, label="Class 1")
+    scatter!(X_xor[y_xor.==0, 1], X_xor[y_xor.==0, 2],
+             color=:tomato, marker=:circle, label="Class 0")
+    
+    # Set plot properties
+    xlims!((-3, 3))
+    ylims!((-3, 3))
+    xlabel!("Feature 1")
+    ylabel!("Feature 2")        
+end
+Random.seed!(1)
+svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.10, cost=10.0)
+mach = machine(svm, X_xor, categorical(y_xor)) |> fit!;
+
+begin
+    markers = [:circle, :rect]
+    x1_min, x1_max = minimum(X_xor[:, 1]) - 1, maximum(X_xor[:, 1]) + 1
+    x2_min, x2_max = minimum(X_xor[:, 2]) - 1, maximum(X_xor[:, 2]) + 1
+    xx1 = range(x1_min, x1_max, length=l)
+    xx2 = range(x2_min, x2_max, length=l)
+    
+    Z = [predict_mode(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]
+
+    p = contourf(xx1, xx2, Z, 
+                 color=[:red, :blue],
+                 levels=3, alpha=0.3, legend=false);
+
+    for (i, cl) in enumerate(unique(y))
+        idx = findall(y .== cl)
+        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    end
+    xlabel!("Feature 1")
+    ylabel!("Feature 2")    
+    plot!(legend=:topleft)    
+end
+
+Random.seed!(1)
+svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.2, cost=1.0)
+mach = machine(svm, Xtrn_std, ytrn) |> fit!;
+plot_decision_regions(Xcomb_std, ycomb, mach, test_idx=105:150)
+
+Random.seed!(1)
+svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=100.0, cost=1.0)
+mach = machine(svm, Xtrn_std, ytrn) |> fit!;
+plot_decision_regions(Xcomb_std, ycomb, mach, test_idx=105:150)

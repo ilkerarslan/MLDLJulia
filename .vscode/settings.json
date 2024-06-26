@@ -1,5 +1,0 @@
-{
-    "workbench.settings.applyToAllProfiles": [
-            "julia.usePlotPane",        
-        ],
-}

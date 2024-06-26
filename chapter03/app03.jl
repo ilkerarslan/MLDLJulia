@@ -1,7 +1,8 @@
 include("mod03.jl")
 using .CHAPTER03
-using Random, Plots, DataFrames, StatsBase
-using MLJ, MLJLinearModels, Optim
+using Random, Plots, DataFrames, StatsBase, GraphViz
+using MLJ, MLJModels, MLJLinearModels
+using Distances, Optim
 
 # Load data
 iris = MLJ.load_iris()
@@ -203,3 +204,167 @@ Random.seed!(1)
 svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=100.0, cost=1.0)
 mach = machine(svm, Xtrn_std, ytrn) |> fit!;
 plot_decision_regions(Xcomb_std, ycomb, mach, test_idx=105:150)
+
+# Decision Tree Learning
+entropy(p) = -p*log2(p) - (1-p)*log2(1-p)
+
+x = 0.01:0.01:1
+ent = entropy.(x)
+plot(x, ent,
+     xlabel="Class membership probability p(i=1)",
+     ylabel="Entropy",
+     legend=false)
+
+gini(p) = p*(1-p) + (1-p)*p
+error(p) = 1- max(p, 1-p)
+
+sc_ent = ent.*0.5
+err = error.(x)
+
+funcs = [ent, sc_ent, gini, err]
+labs = ["Ent", "Ent sc", "Gini", "Miscl."]
+lines = [:solid, :solid, :dash, :dashdot]
+colors = [:black, :lightgray, :red, :green]
+
+p = plot(ylims=[0.0, 1.1], xlabel="p(i=1)", ylabel="impurity index");
+for (i, lab, ls, c) in zip(funcs, labs, lines, colors)
+    plot!(p, x, i, label=lab, ls=ls, lw=2, color=c)
+end
+hline!(p, [0.5], lw=1, color=:black, ls=:dash, label=nothing);
+hline!(p, [1], lw=1, color=:black, ls=:dash, label=nothing);
+plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
+
+## Building a decision tree
+models("DecisionTree")
+
+doc("DecisionTreeClassifier", pkg="BetaML")
+DecisionTree = @load DecisionTreeClassifier pkg=BetaML
+tree_model = DecisionTree(
+    max_depth=4,
+    splitting_criterion=BetaML.Utils.gini,
+    rng=Random.seed!(1)
+)
+mach = machine(tree_model, Xtrn, ytrn) |> fit!;
+
+Xcomb = vcat(Xtrn, Xtst)
+ycomb = vcat(ytrn, ytst)
+
+begin
+    test_idx = 105:150
+    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
+    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
+    len=200
+    # Plot the decision surface
+    x1_min, x1_max = minimum(Xcomb[:, 1]) - 1, maximum(Xcomb[:, 1]) + 1
+    x2_min, x2_max = minimum(Xcomb[:, 2]) - 1, maximum(Xcomb[:, 2]) + 1
+
+    xx1 = range(x1_min, x1_max, length=len)
+    xx2 = range(x2_min, x2_max, length=len)
+    
+    Z = [predict_mode(mach, table([x1 x2]))[1] for x1 in xx1, x2 in xx2]
+
+    color_map = Dict(
+        "setosa" => 1,
+        "versicolor" => 2,
+        "virginica" => 3
+        )
+
+    Z_numeric = [color_map[z] for z in Z]
+
+    p = contourf(xx1, xx2, Z_numeric, 
+                 color=[:red, :blue, :lightgreen],
+                 levels=3, alpha=0.3, legend=false);
+
+    # Plot data points
+    for (i, cl) in enumerate(unique(y))
+        idx = findall(y .== cl)
+        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    end
+
+    # Highlight test examples
+    if !isempty(test_idx)
+        X_test = Xcomb[test_idx, :]
+        scatter!(p, X_test[:, 1], X_test[:, 2],
+                 marker=:circle,
+                 mc=:black, ms=2,
+                 label="Test set",
+                 markersize=6)
+    end
+    xlabel!("Petal length (cm)")
+    ylabel!("Petal width (cm)")
+    plot!(legend=:topleft)
+end 
+
+# Graph Visualization
+
+
+# Random Forest Classifier
+models("Forest")
+RandomForest = @load RandomForestClassifier pkg=BetaBinomial
+doc("RandomForestClassifier", pkg="BetaML")
+forest = RandomForest(
+    n_trees=25,
+    max_depth=4,
+    rng=Random.seed!(1)
+)
+
+mach = machine(forest, Xtrn, ytrn) |> fit!;
+begin
+    test_idx = 105:150
+    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
+    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
+    len=200
+    # Plot the decision surface
+    x1_min, x1_max = minimum(Xcomb[:, 1]) - 1, maximum(Xcomb[:, 1]) + 1
+    x2_min, x2_max = minimum(Xcomb[:, 2]) - 1, maximum(Xcomb[:, 2]) + 1
+
+    xx1 = range(x1_min, x1_max, length=len)
+    xx2 = range(x2_min, x2_max, length=len)
+    
+    Z = [predict_mode(mach, table([x1 x2]))[1] for x1 in xx1, x2 in xx2]
+
+    color_map = Dict(
+        "setosa" => 1,
+        "versicolor" => 2,
+        "virginica" => 3
+        )
+
+    Z_numeric = [color_map[z] for z in Z]
+
+    p = contourf(xx1, xx2, Z_numeric, 
+                 color=[:red, :blue, :lightgreen],
+                 levels=3, alpha=0.3, legend=false);
+
+    # Plot data points
+    for (i, cl) in enumerate(unique(y))
+        idx = findall(y .== cl)
+        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    end
+
+    # Highlight test examples
+    if !isempty(test_idx)
+        X_test = Xcomb[test_idx, :]
+        scatter!(p, X_test[:, 1], X_test[:, 2],
+                 marker=:circle,
+                 mc=:black, ms=2,
+                 label="Test set",
+                 markersize=6)
+    end
+    xlabel!("Petal length (cm)")
+    ylabel!("Petal width (cm)")
+    plot!(legend=:topleft)
+end 
+
+# K Nearest Neighbors
+models("Neighbor")
+KNN = @load KNNClassifier pkg=NearestNeighborModels
+doc("KNNClassifier", pkg="NearestNeighborModels")
+
+knn = KNN(
+    K=5,
+    metric=Distances.Minkowski(2),
+    algorithm=:kdtree
+)
+
+mach = machine(knn, Xtrn, ytrn) |> fit!;
+plot_decision_regions(Xcomb, ycomb, mach, test_idx=106:150)

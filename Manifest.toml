@@ -826,7 +826,7 @@ uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
 version = "1.5.0"
 
 [[deps.JMLDL]]
-deps = ["LinearAlgebra", "Random", "Statistics"]
+deps = ["LinearAlgebra", "ProgressBars", "Random", "Statistics"]
 path = "C:\\Users\\ilker.arslan\\.julia\\dev\\JMLDL"
 uuid = "bc369059-268b-4ec8-bac2-83ab018fab3b"
 version = "0.1.0"

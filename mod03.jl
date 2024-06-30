@@ -2,70 +2,7 @@ module CHAPTER03
 
 using Plots, MLJ, Random, ProgressBars
 
-export OptimAlgorithm, LogisticRegression
-export fitmodel!, pred, plot_decision_regions
-
-"""Optimization algorithm"""
-@enum OptimAlgorithm begin
-    SGD
-    BatchGD 
-    MiniBatchGD
-end
-
-"""
-    LogisticRegression
-
-Logistic Regression Classifier
-"""
-@kwdef mutable struct LogisticRegression
-    w::Vector{Float64} = Float64[]
-    b::Float64 = 0.0
-    losses::Vector{Float64} = Float64[]
-end
-
-"""Calculate net input"""
-net_input(m::LogisticRegression, x::AbstractVector) = x' * m.w + m.b
-net_input(m::LogisticRegression, X::AbstractMatrix) = X * m.w .+ m.b
-
-
-"""Compute logistic sigmoid activation"""
-sigmoid(z) = 1 ./ (1 .+ exp.(-1 * clamp.(z, -250, 250)))
-
-"""Return class label after unit step"""
-pred(m::LogisticRegression, X::AbstractVector) = sigmoid(net_input(m, X)) ≥ 0.5 ? 1 : 0 
-
-"""
-    fitmodel!(model::LogisticRegression, X::Matrix, y::Vector; kwargs...)
-
-Fit the model to the data using the specified optimization algorithm.
-"""
-function fitmodel!(model::LogisticRegression, X::Matrix, y::Vector;
-              η::Float64=0.01, num_iter::Int=50,
-              optim_alg::OptimAlgorithm=BatchGD, seed::Int=1)
-    Random.seed!(seed)
-    model.w = randn(size(X, 2)) ./ 100
-    model.b = 0.0
-    empty!(model.losses)
-    
-    if optim_alg==BatchGD
-        _fit_batch_gd!(model, X, y, η, num_iter)
-    end
-end
-
-function _fit_batch_gd!(model::LogisticRegression, X::Matrix, y::Vector,
-                        η::Float64, num_iter::Int)
-    m = length(y)
-    for _ in ProgressBar(1:num_iter)        
-        ŷ = sigmoid(net_input(model, X))
-        errors = (y .- ŷ)
-        model.w += 2*η .* X' * errors ./ m
-        model.b += 2*η .* sum(errors) / m
-        loss = (-y'*log.(ŷ) - (1 .- y)'*log.(1 .- ŷ)) / m
-        push!(model.losses, loss)
-    end
-end
-
-
+export plot_decision_regions
 
 """
     Plot Decision function

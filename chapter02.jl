@@ -1,7 +1,11 @@
-include("mod02.jl")
-using .CHAPTER02
-using .CHAPTER02: OptimAlgorithm, SGD, BatchGD, MiniBatchGD
-using DataFrames, RDatasets, Plots, Colors, Random, Statistics
+using Revise
+using JMLDL
+using JMLDL.LinearModel: Perceptron, Adaline, fit!, predict
+using DataFrames, RDatasets, Plots, Random, Statistics, LinearAlgebra
+
+v1 = [1, 2, 3]
+v2 = 0.5 .* v1
+acos( v1'*v2 / (norm(v1)*norm(v2)) )
 
 # Data
 iris = dataset("datasets", "iris")
@@ -15,7 +19,7 @@ scatter(X[:, 1], X[:, 2],
         title="Iris Dataset: Setosa vs. Versicolor")
 
 pn = Perceptron()
-fit!(pn, X, y, η=0.1, num_iter=10, optim_alg=SGD)
+fit!(pn, X, y, η=0.1, num_iter=10, optim_alg=LinearModel.SGD)
 
 begin
     plot(1:length(pn.losses), pn.losses,
@@ -23,6 +27,17 @@ begin
     title="Perceptron Training Errors",
     legend=false)
     scatter!(1:length(pn.losses), pn.losses)
+end
+
+function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0.02)
+    x1min, x1max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1 
+    x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
+
+    x1_range, x2_range = x1min:resolution:x1max, x2min:resolution:x2max    
+    z = [predict(model, [x1, x2]) for x1 in x1_range, x2 in x2_range]
+
+    contourf(x1_range, x2_range, z', colorbar=false, colormap=:plasma, alpha=0.1)
+    scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
 end
 
 begin
@@ -34,9 +49,9 @@ end
 
 # Adaline
 ada1 = Adaline()
-fit!(ada1, X, y, η=0.1, num_iter=15, optim_alg=BatchGD)
+fit!(ada1, X, y, η=0.1, num_iter=15, optim_alg=LinearModel.BatchGD)
 ada2 = Adaline()
-fit!(ada2, X, y, η=0.0001, num_iter=15, optim_alg=BatchGD)
+fit!(ada2, X, y, η=0.0001, num_iter=15, optim_alg=LinearModel.BatchGD)
 
 begin
     layout = @layout [a b]
@@ -60,7 +75,7 @@ X_std[:, 1] = (X_std[:, 1] .- mean(X_std[:, 1])) ./ std(X_std[:, 1])
 X_std[:, 2] = (X_std[:, 2] .- mean(X_std[:, 2])) ./ std(X_std[:, 2]) 
 
 ada_gd = Adaline()
-fit!(ada_gd, X_std, y, η=0.5, num_iter=20, optim_alg=BatchGD)
+fit!(ada_gd, X_std, y, η=0.5, num_iter=20, optim_alg=LinearModel.BatchGD)
 
 begin
     layout = @layout [a b]
@@ -79,7 +94,7 @@ end
 
 # Stochastic Gradient Descent
 ada_sgd = Adaline()
-fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1, optim_alg=SGD)
+fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1, optim_alg=LinearModel.SGD)
 
 begin
     layout = @layout [a b]

@@ -1,9 +1,42 @@
-include("mod03.jl")
-using .CHAPTER03
-using Random, Plots, DataFrames, StatsBase, GraphViz
+using Revise
+using JMLDL, JMLDL.ModelSelection, JMLDL.PreProcessing, JMLDL.LinearModel
+
+using Random, Plots, DataFrames, StatsBase
+using RDatasets
+
+# Data
+iris = dataset("datasets", "iris")
+X = iris[:, 3:4] |> Matrix
+y = iris.Species
+map_species = Dict(
+    "setosa" => 0,
+    "versicolor" => 1,
+    "virginica" => 2
+)
+y = [map_species[k] for k in y]
+print("Class labels: ", unique(y))
+
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)
+
+println("Labels count in y: ", values(StatsBase.countmap(y)))
+println("Labels counts in ytrn: ", values(StatsBase.countmap(ytrn)))
+println("Labels counts in ytst: ", values(StatsBase.countmap(ytst)))
+
+sc = StandardScaler()
+PreProcessing.fit!(sc, Xtrn)
+Xtrn_std = PreProcessing.transform(sc, Xtrn)
+Xtst_std = PreProcessing.transform(sc, Xtst)
+
+ppn = Perceptron()
+JMLDL.LinearModel.fit!(ppn, Xtrn_std, ytrn; η=0.1, random_state=1)
+ŷ = LinearModel.predict(ppn, Xtst_std)
+print("Misclassified examples: $(sum(ytst .!= ŷ))")
+
+# Burada kaldım
+
+
 using MLJ, MLJModels, MLJLinearModels
 using Distances, Optim
-
 # Load data
 iris = MLJ.load_iris()
 MLJ.selectrows(iris, 1:3) |> MLJ.pretty

@@ -1,7 +1,15 @@
 using Revise
+
 using JMLDL
-using JMLDL.LinearModel: Perceptron, Adaline, fit!, predict
-using DataFrames, RDatasets, Plots, Random, Statistics, LinearAlgebra
+using JMLDL.LinearModel
+using JMLDL.LinearModel: Perceptron, OptimAlgorithm
+
+using Revise
+using JMLDL
+using JMLDL.LinearModel: Perceptron, OptimAlgorithm, SGD, fit!
+
+using LinearAlgebra, RDatasets, Plots
+using DataFrames, Random, Statistics
 
 v1 = [1, 2, 3]
 v2 = 0.5 .* v1
@@ -94,7 +102,7 @@ end
 
 # Stochastic Gradient Descent
 ada_sgd = Adaline()
-fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1, optim_alg=LinearModel.SGD)
+fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_state=1, optim_alg=LinearModel.SGD)
 
 begin
     layout = @layout [a b]

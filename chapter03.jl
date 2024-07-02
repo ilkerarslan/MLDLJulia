@@ -1,8 +1,9 @@
 using Revise
-using JMLDL, JMLDL.ModelSelection, JMLDL.PreProcessing, JMLDL.LinearModel
+using RDatasets, DataFrames, StatsBase
+using Random, Plots, StatsBase
 
-using Random, Plots, DataFrames, StatsBase
-using RDatasets
+using JMLDL.ModelSelection: train_test_split
+using JMLDL.PreProcessing: StandardScaler
 
 # Data
 iris = dataset("datasets", "iris")

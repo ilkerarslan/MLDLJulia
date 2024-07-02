@@ -1,6 +1,6 @@
 using Revise
-using JMLDL
-using JMLDL.LinearModel: Perceptron, Adaline, fit!, predict
+using Nova
+using Nova.LinearModel: Perceptron
 using DataFrames, RDatasets, Plots, Random, Statistics, LinearAlgebra
 
 v1 = [1, 2, 3]
@@ -18,8 +18,8 @@ scatter(X[:, 1], X[:, 2],
         ylabel="Petal Length (cm)",
         title="Iris Dataset: Setosa vs. Versicolor")
 
-pn = Perceptron()
-fit!(pn, X, y, η=0.1, num_iter=10, optim_alg=LinearModel.SGD)
+pn = Perceptron(η=0.1, num_iter=10)
+pn(X, y)
 
 begin
     plot(1:length(pn.losses), pn.losses,

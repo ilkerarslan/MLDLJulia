@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "20aab6b6d16a3287a8fbd09d4f4d19985da2d41b"
+project_hash = "87b72e9149851f1859dd812cc2894cfde9001831"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -757,12 +757,6 @@ git-tree-sha1 = "7e5d6779a1e09a36db2a7b6cff50942a0a7d0fca"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
 version = "1.5.0"
 
-[[deps.JMLDL]]
-deps = ["LinearAlgebra", "ProgressBars", "Random", "Statistics", "StatsBase"]
-path = "C:\\Users\\ilker.arslan\\.julia\\dev\\JMLDL.jl"
-uuid = "bc369059-268b-4ec8-bac2-83ab018fab3b"
-version = "0.1.0"
-
 [[deps.JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "31e996f0a15c7b280ba9f76636b3ff9e2ae58c9a"
@@ -1233,6 +1227,12 @@ version = "0.4.18"
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
+
+[[deps.Nova]]
+deps = ["ProgressBars", "Random", "Statistics"]
+path = "C:\\Users\\ilker.arslan\\.julia\\dev\\Nova.jl"
+uuid = "3f482e55-661e-4eec-8a53-436578a72954"
+version = "1.0.0-DEV"
 
 [[deps.OffsetArrays]]
 git-tree-sha1 = "e64b4f5ea6b7389f6f046d13d4896a8f9c1ba71e"

@@ -2,7 +2,8 @@ using Revise
 using RDatasets, DataFrames, StatsBase
 using Random, Plots, StatsBase
 
-using JMLDL.ModelSelection: train_test_split
+using Nova
+using Nova.ModelSelection: train_test_split
 using JMLDL.PreProcessing: StandardScaler
 
 # Data

@@ -4,7 +4,9 @@ using Random, Plots, StatsBase
 
 using Nova
 using Nova.ModelSelection: train_test_split
-using JMLDL.PreProcessing: StandardScaler
+using Nova.PreProcessing: StandardScaler
+using Nova.LinearModel: Perceptron, MultiClassPerceptron
+using Nova.Metrics: accuracy_score
 
 # Data
 iris = dataset("datasets", "iris")
@@ -24,18 +26,145 @@ println("Labels count in y: ", values(StatsBase.countmap(y)))
 println("Labels counts in ytrn: ", values(StatsBase.countmap(ytrn)))
 println("Labels counts in ytst: ", values(StatsBase.countmap(ytst)))
 
-sc = StandardScaler()
-PreProcessing.fit!(sc, Xtrn)
-Xtrn_std = PreProcessing.transform(sc, Xtrn)
-Xtst_std = PreProcessing.transform(sc, Xtst)
+stdscaler = StandardScaler()
 
-ppn = Perceptron()
-JMLDL.LinearModel.fit!(ppn, Xtrn_std, ytrn; η=0.1, random_state=1)
-ŷ = LinearModel.predict(ppn, Xtst_std)
+stdscaler(Xtrn)
+Xtrn_std = stdscaler(Xtrn)
+Xtst_std = stdscaler(Xtst)
+
+
+abstract type AbstractModel end
+
+# Activation functions
+"""Linear activation function"""
+linearactivation(X) = X
+
+# Common methods
+"""Calculate net input"""
+net_input(m::AbstractModel, x::AbstractVector) = m.W' * x .+ m.b
+net_input(m::AbstractModel, X::AbstractMatrix) = X * m.W .+ m.b'
+
+"""AbstractModel batch prediction"""
+(m::AbstractModel)(X::AbstractMatrix) = [m(x) for x in eachrow(X)]
+
+# Multiclass Perceptron
+mutable struct MulticlassPerceptron <: AbstractModel
+    # Parameters
+    W::Matrix{Float64}
+    b::Vector{Float64}
+    losses::Vector{Float64}
+    fitted::Bool
+    classes::Vector{Any}
+
+    # Hyper parameters
+    η::Float64
+    num_iter::Int
+    random_state::Union{Nothing, Int64}
+    optim_alg::Symbol
+    batch_size::Int 
+end
+
+function MulticlassPerceptron(; η=0.01, num_iter=100, random_state=nothing,
+            optim_alg=:SGD, batch_size=32)
+    if !(optim_alg ∈ [:SGD, :Batch, :MiniBatch])
+        throw("""`optim_alg` should be in [:SGD, :Batch, :MiniBatch]""")
+    else        
+        return MulticlassPerceptron(Matrix{Float64}(undef, 0, 0), Float64[], Float64[], false, [], η, num_iter, random_state, optim_alg, batch_size)
+    end
+end
+
+# Model training
+"""Multiclass Perceptron training model"""
+function (m::MulticlassPerceptron)(X::Matrix, y::Vector)
+    if m.random_state !== nothing
+        Random.seed!(m.random_state)
+    end
+    empty!(m.losses)
+
+    # Get unique classes
+    m.classes = sort(unique(y))
+    n_classes = length(m.classes)
+    n_features = size(X, 2)
+
+    # Initialize weights and bias
+    m.W = randn(n_features, n_classes) ./ 100
+    m.b = zeros(n_classes)
+
+    # Create a dictionary to map classes to indices
+    class_to_index = Dict(class => i for (i, class) in enumerate(m.classes))
+
+    if m.optim_alg == :SGD
+        n = length(y)
+        for _ in 1:m.num_iter
+            error = 0
+            for i in 1:n
+                xi, yi = X[i, :], y[i]
+                ŷ_scores = net_input(m, xi)
+                ŷ_index = argmax(ŷ_scores)
+                yi_index = class_to_index[yi]
+                
+                if ŷ_index != yi_index
+                    error += 1
+                    # Update weights and bias for the correct class
+                    m.W[:, yi_index] .+= m.η * xi
+                    m.b[yi_index] += m.η
+                    # Update weights and bias for the predicted class
+                    m.W[:, ŷ_index] .-= m.η * xi
+                    m.b[ŷ_index] -= m.η
+                end
+            end
+            push!(m.losses, error)
+        end
+        m.fitted = true
+    elseif m.optim_alg == :Batch
+        # Implement batch gradient descent
+    elseif m.optim_alg == :MiniBatch
+        # Implement mini-batch gradient descent
+    end
+end
+
+"""Multiclass Perceptron prediction with single observation"""
+function (m::MulticlassPerceptron)(x::AbstractVector)
+    if !m.fitted
+        throw(ErrorException("Model is not fitted yet."))
+    end
+    scores = net_input(m, x)
+    class_index = argmax(scores)
+    return m.classes[class_index]
+end
+
+"""Multiclass Perceptron prediction with multiple observations"""
+function (m::MulticlassPerceptron)(X::AbstractMatrix)
+    if !m.fitted
+        throw(ErrorException("Model is not fitted yet."))
+    end
+    scores = net_input(m, X)
+    class_indices = [argmax(score) for score in eachrow(scores)]
+    return [m.classes[i] for i in class_indices]
+end
+
+
+mcp = MulticlassPerceptron(η=0.1, random_state=1)
+mcp(Xtrn_std, ytrn)
+ŷ = mcp(Xtst_std)
 print("Misclassified examples: $(sum(ytst .!= ŷ))")
+accuracy_score(ytst, ŷ)
 
-# Burada kaldım
+function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0.02)
+    x1min, x1max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1 
+    x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
 
+    x1_range, x2_range = x1min:resolution:x1max, x2min:resolution:x2max    
+    z = [model([x1, x2]) for x1 in x1_range, x2 in x2_range]
+
+    contourf(x1_range, x2_range, z', colorbar=false, colormap=:plasma, alpha=0.1)
+    scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
+end
+
+Xcomb_std = vcat(Xtrn_std, Xtst_std)
+ycomb = vcat(ytrn, ytst)
+
+plot_decision_region(ppn, Xcomb_std, ycomb)
 
 using MLJ, MLJModels, MLJLinearModels
 using Distances, Optim
@@ -403,3 +532,6 @@ knn = KNN(
 
 mach = machine(knn, Xtrn, ytrn) |> fit!;
 plot_decision_regions(Xcomb, ycomb, mach, test_idx=106:150)
+
+
+

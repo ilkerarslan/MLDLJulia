@@ -1,7 +1,10 @@
 using Revise
+
 using Nova
-using Nova.LinearModel: Perceptron
-using DataFrames, RDatasets, Plots, Random, Statistics, LinearAlgebra
+using Nova.LinearModel: Perceptron, Adaline
+
+using LinearAlgebra, RDatasets, Plots
+using DataFrames, Random, Statistics
 
 v1 = [1, 2, 3]
 v2 = 0.5 .* v1
@@ -18,8 +21,9 @@ scatter(X[:, 1], X[:, 2],
         ylabel="Petal Length (cm)",
         title="Iris Dataset: Setosa vs. Versicolor")
 
-pn = Perceptron(η=0.1, num_iter=10)
+pn = Perceptron(η=0.1, num_iter=10, optim_alg=:SGD)
 pn(X, y)
+pn(X)
 
 begin
     plot(1:length(pn.losses), pn.losses,
@@ -34,7 +38,7 @@ function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0
     x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
 
     x1_range, x2_range = x1min:resolution:x1max, x2min:resolution:x2max    
-    z = [predict(model, [x1, x2]) for x1 in x1_range, x2 in x2_range]
+    z = [model([x1, x2]) for x1 in x1_range, x2 in x2_range]
 
     contourf(x1_range, x2_range, z', colorbar=false, colormap=:plasma, alpha=0.1)
     scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
@@ -48,10 +52,11 @@ begin
 end
 
 # Adaline
-ada1 = Adaline()
-fit!(ada1, X, y, η=0.1, num_iter=15, optim_alg=LinearModel.BatchGD)
-ada2 = Adaline()
-fit!(ada2, X, y, η=0.0001, num_iter=15, optim_alg=LinearModel.BatchGD)
+ada1 = Adaline(η=0.1, num_iter=15, optim_alg=:Batch)
+ada2 = Adaline(η=0.0001, num_iter=15, optim_alg=:Batch)
+
+ada1(X, y)
+ada2(X, y)
 
 begin
     layout = @layout [a b]
@@ -74,8 +79,8 @@ X_std = copy(X)
 X_std[:, 1] = (X_std[:, 1] .- mean(X_std[:, 1])) ./ std(X_std[:, 1]) 
 X_std[:, 2] = (X_std[:, 2] .- mean(X_std[:, 2])) ./ std(X_std[:, 2]) 
 
-ada_gd = Adaline()
-fit!(ada_gd, X_std, y, η=0.5, num_iter=20, optim_alg=LinearModel.BatchGD)
+ada_gd = Adaline(η=0.5, num_iter=20, optim_alg=:Batch)
+ada_gd(X_std, y)
 
 begin
     layout = @layout [a b]
@@ -92,19 +97,18 @@ begin
 end
 
 
-# Stochastic Gradient Descent
-ada_sgd = Adaline()
-fit!(ada_sgd, X_std, y, num_iter=15, η=0.01, random_seed=1, optim_alg=LinearModel.SGD)
+ada_sgd = Adaline(num_iter=15, η=0.01, random_state=1, optim_alg=:SGD)
+ada_sgd(X_std, y)
 
 begin
     layout = @layout [a b]
     p1 = plot_decision_region(ada_sgd, X_std, y);
     xlabel!(p1, "Sepal Length (standardized)");
     ylabel!(p1, "Petal Length (standardized)");
-    title!(p1, "Adaline - SGD");
+    title!(p1, "Adaline - Stochastic gradient descent");
     p2 = plot(1:length(ada_sgd.losses), ada_sgd.losses,
               xlabel="Epochs",
-              ylabel="Mean squared error",
+              ylabel="Average loss",
               legend=false);
     scatter!(p2, 1:length(ada_sgd.losses), ada_sgd.losses);
     plot(p1, p2, layout=layout)        

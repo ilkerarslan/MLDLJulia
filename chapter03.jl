@@ -1,5 +1,5 @@
 using Revise
-using RDatasets, DataFrames, StatsBase
+using RDatasets, DataFrames, StatsBase, LinearAlgebra
 using Random, Plots, StatsBase
 
 using Nova
@@ -91,61 +91,18 @@ begin
          ylabel="L(w,b)")    
 end
 
-
-idx = (ytrn .== "setosa") .|| (ytrn .== "versicolor")
+idx = (ytrn .== 0) .|| (ytrn .== 1)
 Xtrn01_subset = Xtrn_std[idx, :] |> Matrix
 ytrn01_subset = ytrn[idx]
-ytrn01_subset = [x == "setosa" ? 0 : 1 for x in ytrn01_subset]
+ytrn01_subset = [x == 0 ? 0 : 1 for x in ytrn01_subset]
 
-lrgd = LogisticRegression(η=0.3, num_iter=1000, random_state=1, optim_alg=:Batch)
+lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, optim_alg=:Batch)
 lrgd(Xtrn01_subset, ytrn01_subset)
+plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
+
+# Burada kaldım...
 
 
-
-
-fitmodel!(lrgd, Xtrn01_subset, ytrn01_subset,
-          η=0.3, num_iter=1000, seed=1)
-
-plot_decision_regions(Xtrn01_subset, ytrn01_subset, lrgd)
-
-# Logistic Regression with MLJ
-models("Logistic")
-MNModel = @load MultinomialClassifier pkg=MLJLinearModels
-doc("MultinomialClassifier", pkg="MLJLinearModels")
-solver = MLJLinearModels.LBFGS()
-lr = MNModel(solver=solver)
-mach = machine(lr, Xtrn_std, ytrn)
-fit!(mach)
-
-Xcomb_std = vcat(Xtrn_std, Xtst_std)
-ycomb = vcat(ytrn, ytst)
-plot_decision_regions(Xcomb_std, ycomb, mach; test_idx=105:150)
-
-
-# Tackling overfitting via regularization
-doc("LogisticClassifier", pkg="MLJLinearModels")
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
-
-wpl = []
-wpw = []
-params = []
-solver = MLJLinearModels.LBFGS()
-
-for c in -5:0.5:5    
-    model = LogisticClassifier(penalty=:l2, lambda=10.0^-c,
-                               solver=solver)    
-    mach = machine(model, Xtrn_std, ytrn) |> fit!;
-    w = MLJ.fitted_params(mach).coefs
-  
-    push!(wpl, w[1][2][2])
-    push!(wpw, w[2][2][2])
-    push!(params, 10.0^c)
-end
-
-plot(params, [wpl wpw], xscale=:log10, 
-     label = ["Petal length" "Petal width"],
-     legend=:bottomleft,
-     lw=2)
 
 # Maximum margin classification with support vector machines
 using LIBSVM

@@ -7,6 +7,11 @@ using Nova.ModelSelection: train_test_split
 using Nova.PreProcessing: StandardScaler
 using Nova.LinearModel: MulticlassPerceptron, LogisticRegression
 using Nova.Metrics: accuracy_score
+using Nova.MultiClass: OneVsRestClassifier
+using Nova.Tree: DecisionTreeClassifier
+using Nova.Ensemble: RandomForestClassifier
+
+using MLJ
 
 # Data
 iris = dataset("datasets", "iris")
@@ -50,13 +55,24 @@ function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0
     scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
 end
 
+function plot_decision_region(model::DecisionTreeClassifier, X::Matrix, y::Vector, resolution::Float64=0.02)
+    x1min, x1max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1 
+    x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
+
+    x1_range, x2_range = x1min:resolution:x1max, x2min:resolution:x2max    
+    z = [model([x1 x2])[1] for x1 in x1_range, x2 in x2_range]
+
+    contourf(x1_range, x2_range, z', colorbar=false, colormap=:plasma, alpha=0.1)
+    scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
+end
+
+
 Xcomb_std = vcat(Xtrn_std, Xtst_std)
 ycomb = vcat(ytrn, ytst)
 
 plot_decision_region(mcp, Xcomb_std, ycomb)
 
 # Logistic Regression
-
 begin
     function sigmoid(z)
         return 1.0 ./ (1.0 .+ exp.(-z))
@@ -100,23 +116,47 @@ lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, optim_alg=:Bat
 lrgd(Xtrn01_subset, ytrn01_subset)
 plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
 
-# Burada kaldım...
+ovr = OneVsRestClassifier()
+ovr(Xtrn_std, ytrn)
+ovr.classifiers[3]
 
+ŷ = ovr(Xtst_std)
+accuracy_score(ytst, ŷ)
+
+ovr(Xtst_std, type=:probs)
+
+# Tackling overfitting via regularization 
+weights = Matrix(undef, 0, 2)
+params = []
+for l in Int.(-5:5)
+    ovr = OneVsRestClassifier(λ=10.0^l)
+    ovr(Xtrn_std, ytrn)
+    weights = vcat(weights, ovr.classifiers[2].w')
+    push!(params, 10.0^l)
+end
+
+plot(params, weights[:, 1], label="Petal length", xaxis=:log)
+plot!(params, weights[:, 2], label="Petal width", xaxis=:log)
+xlabel!("λ")
+ylabel!("Weights")
 
 
 # Maximum margin classification with support vector machines
-using LIBSVM
-models("SVC")
-SVC = @load ProbabilisticSVC pkg=LIBSVM
-doc("ProbabilisticSVC", pkg="LIBSVM")
-Random.seed!(1)
-svm = SVC(kernel=LIBSVM.Kernel.Linear, cost=1.0)
-mach = machine(svm, Xtrn_std, ytrn) |> fit!;
-plot_decision_regions(X, y, mach, test_idx=105:150)
+iris = dataset("datasets", "iris")
+X = Matrix(iris[:, 1:4])
+y = iris.Species
+
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, stratify=y, random_state=1)
+SVC = @load SVC pkg=LIBSVM
+model = SVC(kernel=(x1, x2) -> x1'*x2)
+mach = machine(model, Xtrn, ytrn) |> fit!;
+ypreds = MLJ.predict(mach, Xtst)
+sum(ypreds .!= ytst)
+
 
 # Solving nonlinear problems using a kernel SVM
 using Distributions
-
+using LIBSVM
 Random.seed!(1)
 X_xor = rand(Normal(0, 1), (200, 2))
 y_xor = xor.(X_xor[:, 1] .> 0, X_xor[:, 2] .> 0)
@@ -139,6 +179,7 @@ svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.10, cost=10.0)
 mach = machine(svm, X_xor, categorical(y_xor)) |> fit!;
 
 begin
+    l =300
     markers = [:circle, :rect]
     x1_min, x1_max = minimum(X_xor[:, 1]) - 1, maximum(X_xor[:, 1]) + 1
     x2_min, x2_max = minimum(X_xor[:, 2]) - 1, maximum(X_xor[:, 2]) + 1
@@ -199,6 +240,16 @@ hline!(p, [0.5], lw=1, color=:black, ls=:dash, label=nothing);
 hline!(p, [1], lw=1, color=:black, ls=:dash, label=nothing);
 plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
 
+
+Xcomb = vcat(Xtrn, Xtst)
+ycomb = vcat(ytrn, ytst)
+
+tree = DecisionTreeClassifier(max_depth=4, random_state=1)
+tree(Xtrn, ytrn)
+ŷ = tree(Xtst)
+sum(ytst .!= ŷ)
+plot_decision_region(tree, Xcomb, ycomb)
+
 ## Building a decision tree
 models("DecisionTree")
 
@@ -211,114 +262,24 @@ tree_model = DecisionTree(
 )
 mach = machine(tree_model, Xtrn, ytrn) |> fit!;
 
-Xcomb = vcat(Xtrn, Xtst)
-ycomb = vcat(ytrn, ytst)
-
-begin
-    test_idx = 105:150
-    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
-    len=200
-    # Plot the decision surface
-    x1_min, x1_max = minimum(Xcomb[:, 1]) - 1, maximum(Xcomb[:, 1]) + 1
-    x2_min, x2_max = minimum(Xcomb[:, 2]) - 1, maximum(Xcomb[:, 2]) + 1
-
-    xx1 = range(x1_min, x1_max, length=len)
-    xx2 = range(x2_min, x2_max, length=len)
-    
-    Z = [predict_mode(mach, table([x1 x2]))[1] for x1 in xx1, x2 in xx2]
-
-    color_map = Dict(
-        "setosa" => 1,
-        "versicolor" => 2,
-        "virginica" => 3
-        )
-
-    Z_numeric = [color_map[z] for z in Z]
-
-    p = contourf(xx1, xx2, Z_numeric, 
-                 color=[:red, :blue, :lightgreen],
-                 levels=3, alpha=0.3, legend=false);
-
-    # Plot data points
-    for (i, cl) in enumerate(unique(y))
-        idx = findall(y .== cl)
-        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
-    end
-
-    # Highlight test examples
-    if !isempty(test_idx)
-        X_test = Xcomb[test_idx, :]
-        scatter!(p, X_test[:, 1], X_test[:, 2],
-                 marker=:circle,
-                 mc=:black, ms=2,
-                 label="Test set",
-                 markersize=6)
-    end
-    xlabel!("Petal length (cm)")
-    ylabel!("Petal width (cm)")
-    plot!(legend=:topleft)
-end 
-
-# Graph Visualization
 
 
 # Random Forest Classifier
+forest = RandomForestClassifier(n_estimators=25, random_state=1)
+forest(Xtrn, ytrn)
+ŷ = forest(Xtst)
+sum(ŷ .!= ytst)
+
 models("Forest")
-RandomForest = @load RandomForestClassifier pkg=BetaBinomial
 doc("RandomForestClassifier", pkg="BetaML")
+RandomForest = @load RandomForestClassifier pkg=BetaML 
 forest = RandomForest(
     n_trees=25,
     max_depth=4,
     rng=Random.seed!(1)
 )
-
 mach = machine(forest, Xtrn, ytrn) |> fit!;
-begin
-    test_idx = 105:150
-    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
-    len=200
-    # Plot the decision surface
-    x1_min, x1_max = minimum(Xcomb[:, 1]) - 1, maximum(Xcomb[:, 1]) + 1
-    x2_min, x2_max = minimum(Xcomb[:, 2]) - 1, maximum(Xcomb[:, 2]) + 1
 
-    xx1 = range(x1_min, x1_max, length=len)
-    xx2 = range(x2_min, x2_max, length=len)
-    
-    Z = [predict_mode(mach, table([x1 x2]))[1] for x1 in xx1, x2 in xx2]
-
-    color_map = Dict(
-        "setosa" => 1,
-        "versicolor" => 2,
-        "virginica" => 3
-        )
-
-    Z_numeric = [color_map[z] for z in Z]
-
-    p = contourf(xx1, xx2, Z_numeric, 
-                 color=[:red, :blue, :lightgreen],
-                 levels=3, alpha=0.3, legend=false);
-
-    # Plot data points
-    for (i, cl) in enumerate(unique(y))
-        idx = findall(y .== cl)
-        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
-    end
-
-    # Highlight test examples
-    if !isempty(test_idx)
-        X_test = Xcomb[test_idx, :]
-        scatter!(p, X_test[:, 1], X_test[:, 2],
-                 marker=:circle,
-                 mc=:black, ms=2,
-                 label="Test set",
-                 markersize=6)
-    end
-    xlabel!("Petal length (cm)")
-    ylabel!("Petal width (cm)")
-    plot!(legend=:topleft)
-end 
 
 # K Nearest Neighbors
 models("Neighbor")

@@ -10,6 +10,7 @@ using Nova.Metrics: accuracy_score
 using Nova.MultiClass: OneVsRestClassifier
 using Nova.Tree: DecisionTreeClassifier
 using Nova.Ensemble: RandomForestClassifier
+using Nova.Neighbors: KNeighborsClassifier
 
 using MLJ
 
@@ -334,8 +335,13 @@ knn = KNN(
 )
 
 mach = machine(knn, Xtrn, ytrn) |> fit!;
-preds = 
-plot_decision_regions(Xcomb, ycomb, mach, test_idx=106:150)
 
+knn = KNeighborsClassifier(
+    n_neighbors=5,
+    n_jobs=-1
+)
 
+knn(Xtrn, ytrn)
+ŷ = knn(Xtst)
+sum(ŷ .!= ytst)
 

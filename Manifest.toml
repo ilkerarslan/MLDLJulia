@@ -1195,10 +1195,10 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
 
 [[deps.Nova]]
-deps = ["LinearAlgebra", "Optim", "ProgressBars", "Random", "Statistics", "StatsBase"]
+deps = ["DataStructures", "Distances", "LinearAlgebra", "Optim", "ProgressBars", "Random", "Statistics", "StatsBase"]
 path = "C:\\Users\\ilker.arslan\\.julia\\dev\\Nova.jl"
 uuid = "3f482e55-661e-4eec-8a53-436578a72954"
-version = "0.0.1-DEV"
+version = "1.0.0-DEV"
 
 [[deps.OffsetArrays]]
 git-tree-sha1 = "1a27764e945a152f7ca7efa04de513d473e9542e"

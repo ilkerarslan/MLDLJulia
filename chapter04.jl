@@ -85,7 +85,6 @@ inv_size_mapping = Dict(v => k for (k, v) in size_mapping)
 df.size = [get(inv_size_mapping, s, missing) for s in df.size]
 
 # Encoding class labels
-
 class_mapping = Dict(
     label => idx for (idx, label) in enumerate(unique(df.classlabel))
 )

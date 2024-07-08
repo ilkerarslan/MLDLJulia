@@ -66,7 +66,6 @@ function plot_decision_region(model::DecisionTreeClassifier, X::Matrix, y::Vecto
     scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
 end
 
-
 Xcomb_std = vcat(Xtrn_std, Xtst_std)
 ycomb = vcat(ytrn, ytst)
 
@@ -140,19 +139,16 @@ plot!(params, weights[:, 2], label="Petal width", xaxis=:log)
 xlabel!("λ")
 ylabel!("Weights")
 
-
 # Maximum margin classification with support vector machines
 iris = dataset("datasets", "iris")
 X = Matrix(iris[:, 1:4])
 y = iris.Species
 
-Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, stratify=y, random_state=1)
 SVC = @load SVC pkg=LIBSVM
 model = SVC(kernel=(x1, x2) -> x1'*x2)
 mach = machine(model, Xtrn, ytrn) |> fit!;
 ypreds = MLJ.predict(mach, Xtst)
 sum(ypreds .!= ytst)
-
 
 # Solving nonlinear problems using a kernel SVM
 using Distributions
@@ -179,48 +175,99 @@ svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.10, cost=10.0)
 mach = machine(svm, X_xor, categorical(y_xor)) |> fit!;
 
 begin
-    l =300
-    markers = [:circle, :rect]
+    test_idx = []
+    len = 300
+    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
+    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
+
+    # Plot the decision surface
     x1_min, x1_max = minimum(X_xor[:, 1]) - 1, maximum(X_xor[:, 1]) + 1
     x2_min, x2_max = minimum(X_xor[:, 2]) - 1, maximum(X_xor[:, 2]) + 1
-    xx1 = range(x1_min, x1_max, length=l)
-    xx2 = range(x2_min, x2_max, length=l)
-    
-    Z = [predict_mode(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]
+    xx1 = range(x1_min, x1_max, length=len)
+    xx2 = range(x2_min, x2_max, length=len)        
+    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
 
     p = contourf(xx1, xx2, Z, 
-                 color=[:red, :blue],
+                 color=[:red, :blue, :lightgreen],
                  levels=3, alpha=0.3, legend=false);
 
-    for (i, cl) in enumerate(unique(y))
-        idx = findall(y .== cl)
-        scatter!(p, X[idx, 1], X[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    # Plot data points
+    for (i, cl) in enumerate(unique(y_xor))
+        idx = findall(y_xor .== cl)
+        scatter!(p, X_xor[idx, 1], X_xor[idx, 2], marker=markers[i], label="Class $cl", ms=4)
     end
-    xlabel!("Feature 1")
-    ylabel!("Feature 2")    
-    plot!(legend=:topleft)    
+    scatter!()
+    # Highlight test examples
 end
 
 Random.seed!(1)
 svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.2, cost=1.0)
-mach = machine(svm, Xtrn_std, ytrn) |> fit!;
-plot_decision_regions(Xcomb_std, ycomb, mach, test_idx=105:150)
+mach = machine(svm, Xtrn_std, categorical(ytrn)) |> fit!;
+
+begin
+    test_idx = 105:150
+    len = 300
+    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
+    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
+
+    # Plot the decision surface
+    x1_min, x1_max = minimum(Xcomb_std[:, 1]) - 1, maximum(Xcomb_std[:, 1]) + 1
+    x2_min, x2_max = minimum(Xcomb_std[:, 2]) - 1, maximum(Xcomb_std[:, 2]) + 1
+    xx1 = range(x1_min, x1_max, length=len)
+    xx2 = range(x2_min, x2_max, length=len)        
+    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
+
+    p = contourf(xx1, xx2, Z, 
+                 color=[:red, :blue, :lightgreen],
+                 levels=3, alpha=0.3, legend=false);
+
+    # Plot data points
+    for (i, cl) in enumerate(unique(ycomb))
+        idx = findall(ycomb .== cl)
+        scatter!(p, Xcomb_std[idx, 1], Xcomb_std[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    end
+    scatter!()
+    # Highlight test examples
+end
+
 
 Random.seed!(1)
 svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=100.0, cost=1.0)
-mach = machine(svm, Xtrn_std, ytrn) |> fit!;
-plot_decision_regions(Xcomb_std, ycomb, mach, test_idx=105:150)
+mach = machine(svm, Xtrn_std, categorical(ytrn)) |> fit!;
+begin
+    test_idx = 105:150
+    len = 300
+    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
+    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
+
+    # Plot the decision surface
+    x1_min, x1_max = minimum(Xcomb_std[:, 1]) - 1, maximum(Xcomb_std[:, 1]) + 1
+    x2_min, x2_max = minimum(Xcomb_std[:, 2]) - 1, maximum(Xcomb_std[:, 2]) + 1
+    xx1 = range(x1_min, x1_max, length=len)
+    xx2 = range(x2_min, x2_max, length=len)        
+    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
+
+    p = contourf(xx1, xx2, Z, 
+                 color=[:red, :blue, :lightgreen],
+                 levels=3, alpha=0.3, legend=false);
+
+    # Plot data points
+    for (i, cl) in enumerate(unique(ycomb))
+        idx = findall(ycomb .== cl)
+        scatter!(p, Xcomb_std[idx, 1], Xcomb_std[idx, 2], marker=markers[i], label="Class $cl", ms=4)
+    end
+    scatter!()
+    # Highlight test examples
+end
 
 # Decision Tree Learning
 entropy(p) = -p*log2(p) - (1-p)*log2(1-p)
-
 x = 0.01:0.01:1
 ent = entropy.(x)
 plot(x, ent,
      xlabel="Class membership probability p(i=1)",
      ylabel="Entropy",
      legend=false)
-
 gini(p) = p*(1-p) + (1-p)*p
 error(p) = 1- max(p, 1-p)
 
@@ -240,7 +287,6 @@ hline!(p, [0.5], lw=1, color=:black, ls=:dash, label=nothing);
 hline!(p, [1], lw=1, color=:black, ls=:dash, label=nothing);
 plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
 
-
 Xcomb = vcat(Xtrn, Xtst)
 ycomb = vcat(ytrn, ytst)
 
@@ -250,9 +296,8 @@ ŷ = tree(Xtst)
 sum(ytst .!= ŷ)
 plot_decision_region(tree, Xcomb, ycomb)
 
-## Building a decision tree
+## Decision tree with MLJ
 models("DecisionTree")
-
 doc("DecisionTreeClassifier", pkg="BetaML")
 DecisionTree = @load DecisionTreeClassifier pkg=BetaML
 tree_model = DecisionTree(
@@ -261,8 +306,6 @@ tree_model = DecisionTree(
     rng=Random.seed!(1)
 )
 mach = machine(tree_model, Xtrn, ytrn) |> fit!;
-
-
 
 # Random Forest Classifier
 forest = RandomForestClassifier(n_estimators=25, random_state=1)
@@ -280,19 +323,18 @@ forest = RandomForest(
 )
 mach = machine(forest, Xtrn, ytrn) |> fit!;
 
-
 # K Nearest Neighbors
 models("Neighbor")
 KNN = @load KNNClassifier pkg=NearestNeighborModels
 doc("KNNClassifier", pkg="NearestNeighborModels")
 
 knn = KNN(
-    K=5,
-    metric=Distances.Minkowski(2),
+    K=5,   
     algorithm=:kdtree
 )
 
 mach = machine(knn, Xtrn, ytrn) |> fit!;
+preds = 
 plot_decision_regions(Xcomb, ycomb, mach, test_idx=106:150)
 
 

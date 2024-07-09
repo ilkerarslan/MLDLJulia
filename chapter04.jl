@@ -1,7 +1,9 @@
 # Building Good Training Datasets - Data Preprocessing
 ## Dealing with missing data 
 ### Identifying missing values in tabular data 
+using Revise
 using CSV, DataFrames
+using Nova.Impute: SimpleImputer
 
 csv_data = """
 A,B,C,D
@@ -63,6 +65,15 @@ imputer = FillImputer(
 )
 mach = machine(imputer, df) |> fit!
 MLJ.transform(mach, df)
+
+df
+impute = SimpleImputer(
+    strategy = :mean
+)
+
+X = Matrix(df)
+impute(X)
+
 
 # Categorical data encoding
 df = DataFrame(

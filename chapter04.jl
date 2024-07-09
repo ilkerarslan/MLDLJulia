@@ -123,23 +123,11 @@ labels = ["M", "L", "XL", "M", "L", "M"]
 lbls = lblenc(labels, :transform)
 lblenc(lbls, :inverse_transform)
 
-# One hot encoding
-function col2_one_hot!(df, col)
-    categories = unique(df[:, col])
-    for category in categories
-        onehot = zeros(Int8, size(df, 1))
-        onehot[df[:, col] .== category] .= 1
-        df[:, category] = onehot
-    end
-    select!(df, Not(col))
-end
-col2_one_hot!(df, :classlabel)
-df
-
+labels = ["M", "L", "XL", "M", "L", "M"]
 using Nova.PreProcessing: OneHotEncoder
 ohe = OneHotEncoder()
-ohe(df.size)
-onehot = ohe(df.size, :transform)
+ohe(labels)
+onehot = ohe(labels, :transform)
 ohe(onehot, :inverse_transform)
 
 # Partitioning a dataset into separate training and test datasets 
@@ -220,9 +208,23 @@ end
 using Plots
 plot()
 for i in 1:length(weights)
-    println(i)
     ys = [w[i] for w in weights]
-    plot!(params, ys, label=nms[i+1], xaxis=:log)
+    plot!(params, ys, label=nms[i+1], xaxis=:log, color=colors[i])
 end
 plot!(legend=:bottomleft)
 
+
+using Nova.Ensemble: RandomForestClassifier
+rf  = RandomForestClassifier(n_estimators=500, random_state=1)
+rf(Xtrn, ytrn)
+rf.feature_importances_
+
+for (f, fi) in zip(nms[2:end], rf.feature_importances_)
+    println("$f: $(round(fi, digits=5))")
+end
+
+nms = nms[2:end]
+importances = rf.feature_importances_
+
+bar(importances)
+xticks!(collect(1:13), nms)

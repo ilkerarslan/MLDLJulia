@@ -74,7 +74,6 @@ impute = SimpleImputer(
 X = Matrix(df)
 impute(X)
 
-
 # Categorical data encoding
 df = DataFrame(
     color = ["green", "red", "blue"],
@@ -113,8 +112,16 @@ col = df.classlabel
 labels = Dict(
     c => l for (l, c) ∈ enumerate(unique(col))
 )
+df
 
 newcol = replace(col, labels...)
+
+using Nova.PreProcessing: LabelEncoder
+lblenc = LabelEncoder()
+lblenc(df.size)
+labels = ["M", "L", "XL", "M", "L", "M"]
+lbls = lblenc(labels, :transform)
+lblenc(lbls, :inverse_transform)
 
 # One hot encoding
 function col2_one_hot!(df, col)
@@ -126,8 +133,14 @@ function col2_one_hot!(df, col)
     end
     select!(df, Not(col))
 end
-
 col2_one_hot!(df, :classlabel)
+df
+
+using Nova.PreProcessing: OneHotEncoder
+ohe = OneHotEncoder()
+ohe(df.size)
+onehot = ohe(df.size, :transform)
+ohe(onehot, :inverse_transform)
 
 # Partitioning a dataset into separate training and test datasets 
 using HTTP, Random

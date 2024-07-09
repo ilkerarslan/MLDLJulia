@@ -168,10 +168,61 @@ nms = [
 rename!(wine, nms)
 wine
 X, y = wine[:, 2:end], wine[:, 1]
+X = Matrix(X)
 
-Random.seed!(0)
-train, test = MLJ.partition(eachindex(y), 0.7, stratify=y)
-Xtrn, Xtst = X[train, :], X[test, :]
-ytrn, ytst = y[train], y[test]
+using Nova.ModelSelection: train_test_split
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
+                                          test_size=0.3, 
+                                          random_state=0, 
+                                          stratify=y)
 
-minmaxscaler(x) = (x .- minimum(x)) ./ (maximum(x) - minimum(x))
+using Nova.PreProcessing: MinMaxScaler
+mmsc = MinMaxScaler()
+mmsc(Xtrn)
+Xtrn_norm = mmsc(Xtrn)
+Xtst_norm = mmsc(Xtst)
+
+using Nova.PreProcessing: StandardScaler
+stdsc = StandardScaler()
+stdsc(Xtrn)
+Xtrn_std = stdsc(Xtrn)
+Xtst_std = stdsc(Xtst)
+
+# Selecting meaningful features
+##Sparse solutions with L1 regularization
+using Nova.MultiClass: OneVsRestClassifier
+using Nova.LinearModel: LogisticRegression
+
+ovr = OneVsRestClassifier()
+ovr(Xtrn_std, ytrn)
+ŷtrn = ovr(Xtrn_std)
+ŷtst = ovr(Xtst_std)
+
+using Nova.Metrics: accuracy_score
+accuracy_score(ŷtrn, ytrn)
+accuracy_score(ŷtst, ytst)
+
+ovr.classifiers[1].w
+[lr.b for lr in ovr.classifiers]
+
+colors = ["blue", "green", "red", "cyan", "magenta",
+          "yellow", "black", "pink", "lightgreen", "lightblue",
+          "gray", "indigo", "orange"]
+weights, params = [], []     
+
+for λ ∈ -5:5
+    ovr = OneVsRestClassifier(random_state=0, λ=10.0^λ)
+    ovr(Xtrn_std, ytrn)
+    push!(weights, ovr.classifiers[2].w)
+    push!(params, 10.0^λ)
+end
+
+using Plots
+plot()
+for i in 1:length(weights)
+    println(i)
+    ys = [w[i] for w in weights]
+    plot!(params, ys, label=nms[i+1], xaxis=:log)
+end
+plot!(legend=:bottomleft)
+

@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "a1259a6a8310326858d75d45f4b39ea9a58a4abd"
+project_hash = "1e977068b9d4984fb42f5e311293962a776a3027"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -50,6 +50,18 @@ version = "2.3.0"
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
+
+[[deps.Arpack]]
+deps = ["Arpack_jll", "Libdl", "LinearAlgebra", "Logging"]
+git-tree-sha1 = "9b9b347613394885fd1c8c7729bfc60528faa436"
+uuid = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+version = "0.5.4"
+
+[[deps.Arpack_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
+git-tree-sha1 = "5ba6c757e8feccf03a1554dfaf3e26b3cfc7fd5e"
+uuid = "68821587-b530-5797-8361-c406ea357684"
+version = "3.5.1+1"
 
 [[deps.ArrayInterface]]
 deps = ["Adapt", "LinearAlgebra", "SparseArrays", "SuiteSparse"]
@@ -722,6 +734,12 @@ git-tree-sha1 = "e663925ebc3d93c1150a7570d114f9ea2f664726"
 uuid = "b3c1a2ee-3fec-4384-bf48-272ea71de57c"
 version = "0.5.4"
 
+[[deps.IterativeSolvers]]
+deps = ["LinearAlgebra", "Printf", "Random", "RecipesBase", "SparseArrays"]
+git-tree-sha1 = "59545b0a2b27208b0650df0a46b8e3019f85055b"
+uuid = "42fd0dbc-a981-5370-80f2-aaf504508153"
+version = "0.9.4"
+
 [[deps.IteratorInterfaceExtensions]]
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
@@ -961,6 +979,18 @@ version = "7.2.0"
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
+[[deps.LinearMaps]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "ee79c3208e55786de58f8dcccca098ced79f743f"
+uuid = "7a12625a-238d-50fd-b39a-03d52299707e"
+version = "3.11.3"
+weakdeps = ["ChainRulesCore", "SparseArrays", "Statistics"]
+
+    [deps.LinearMaps.extensions]
+    LinearMapsChainRulesCoreExt = "ChainRulesCore"
+    LinearMapsSparseArraysExt = "SparseArrays"
+    LinearMapsStatisticsExt = "Statistics"
+
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
 git-tree-sha1 = "a2d09619db4e765091ee5c6ffe8872849de0feea"
@@ -1055,6 +1085,12 @@ git-tree-sha1 = "4a056d2384a906ac2a2d13ed25f9092107f53eb0"
 uuid = "61c7150f-6c77-4bb1-949c-13197eac2a52"
 version = "0.2.1"
 
+[[deps.MLJLinearModels]]
+deps = ["DocStringExtensions", "IterativeSolvers", "LinearAlgebra", "LinearMaps", "MLJModelInterface", "Optim", "Parameters"]
+git-tree-sha1 = "7f517fd840ca433a8fae673edb31678ff55d969c"
+uuid = "6ee0df7b-362f-4a72-a706-9e79364fb692"
+version = "0.10.0"
+
 [[deps.MLJModelInterface]]
 deps = ["Random", "ScientificTypesBase", "StatisticalTraits"]
 git-tree-sha1 = "ceaff6618408d0e412619321ae43b33b40c1a733"
@@ -1063,9 +1099,15 @@ version = "1.11.0"
 
 [[deps.MLJModels]]
 deps = ["CategoricalArrays", "CategoricalDistributions", "Combinatorics", "Dates", "Distances", "Distributions", "InteractiveUtils", "LinearAlgebra", "MLJModelInterface", "Markdown", "OrderedCollections", "Parameters", "Pkg", "PrettyPrinting", "REPL", "Random", "RelocatableFolders", "ScientificTypes", "StatisticalTraits", "Statistics", "StatsBase", "Tables"]
-git-tree-sha1 = "cd1bff9cbea4c00877d370005e45dd1ca19f3c18"
+git-tree-sha1 = "1ca3c428012b1b5a6623d3ebb86e1a56c53e6808"
 uuid = "d491faf4-2d78-11e9-2867-c94bc002c0b7"
-version = "0.17.2"
+version = "0.17.3"
+
+[[deps.MLJMultivariateStatsInterface]]
+deps = ["CategoricalDistributions", "Distances", "LinearAlgebra", "MLJModelInterface", "MultivariateStats", "StatsBase"]
+git-tree-sha1 = "0d76e36bf83926235dcd3eaeafa7f47d3e7f32ea"
+uuid = "1b6a4a23-ba22-4f51-9698-8599985d3728"
+version = "0.5.3"
 
 [[deps.MLJTuning]]
 deps = ["ComputationalResources", "Distributed", "Distributions", "LatinHypercubeSampling", "MLJBase", "ProgressMeter", "Random", "RecipesBase", "StatisticalMeasuresBase"]
@@ -1139,6 +1181,12 @@ version = "0.7.8"
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2023.1.10"
+
+[[deps.MultivariateStats]]
+deps = ["Arpack", "Distributions", "LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI", "StatsBase"]
+git-tree-sha1 = "816620e3aac93e5b5359e4fdaf23ca4525b00ddf"
+uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
+version = "0.10.3"
 
 [[deps.NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
@@ -1535,9 +1583,9 @@ version = "1.2.1"
 
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
-git-tree-sha1 = "6bb314cb1aacfa37ef58e5a0ccf4a1ec0311f495"
+git-tree-sha1 = "ff11acffdb082493657550959d4feb4b6149e73a"
 uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.4"
+version = "1.4.5"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"

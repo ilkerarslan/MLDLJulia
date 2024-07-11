@@ -1,8 +1,10 @@
 # Chapter 05: Compressing Data via Dimensionality Reduction
 ## Unsupervised dimensionality reduction via principal component analysis
 ### Extracting the principal components step by step
-
+using Revise
 using DataFrames, HTTP, Random, CSV
+
+using Nova.ModelSelection: train_test_split
 
 filelink = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
 res = HTTP.get(filelink)
@@ -30,7 +32,6 @@ CSV.write("data/wine.csv", wine)
 X, y = wine[:, 2:end], wine[:, 1]
 X = Matrix(X)
 
-using Nova.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
 										  test_size=0.3, 
 										  random_state=0, 
@@ -87,3 +88,51 @@ end
 
 
 # Principal component analysis in scikit learning
+function plot_decision_regions(X, y, mach, test_idx=[], len=300)	
+	x1_min, x1_max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1
+	x2_min, x2_max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
+	xx1 = range(x1_min, x1_max, length=len)
+	xx2 = range(x2_min, x2_max, length=len)
+	z = [MLJ.predict_mode(mach, [x1 x2])[1] for x1 ∈ xx1, x2 ∈ xx2]
+
+	p = contourf(xx1, xx2, z, 
+				 color=[:red, :blue, :lightgreen],
+				 levels=3, alpha=0.3, legend=false)
+
+	# plot data points 
+	for (i, cl) in enumerate(unique(y))
+		idx = findall(y .== cl)
+		scatter!(p, X[idx, 1], X[idx, 2], label="Class $cl", ms=4)
+	end
+	scatter!()
+end
+
+using MLJ
+models("Multinomial")
+doc("MultinomialClassifier", pkg="MLJLinearModels")
+MultinomialClassifier = @load MultinomialClassifier pkg=MLJLinearModels
+
+models("PCA")
+PCA = @load PCA pkg="MultivariateStats"
+doc("PCA", pkg="MultivariateStats")
+pca = PCA(maxoutdim=2)
+mach = machine(pca, Xtrnstd) |> fit!;
+Xtrnpca = MLJ.transform(mach, Xtrnstd) |> DataFrame;
+Xtstpca = MLJ.transform(mach, Xtststd) |> DataFrame;
+
+ytrncat = categorical(ytrn)
+ytstcat = categorical(ytst)
+
+using MLJLinearModels, Optim
+ovr = MultinomialClassifier(solver=MLJLinearModels.LBFGS(
+	optim_options = Optim.Options(time_limit = 20),
+    )
+)
+mach = machine(ovr, Xtrnpca, ytrncat) |> fit!;
+plot_decision_regions(Xtrnpca, ytrncat, mach)
+
+using Nova
+using Nova.MultiClass: OneVsRestClassifier
+using Nova.LinearModel: LogisticRegression
+
+pca = Decomposition.PCA(n_components=2)

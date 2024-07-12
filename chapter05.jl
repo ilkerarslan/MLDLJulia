@@ -75,9 +75,8 @@ w = [eigen_pairs[1][2] eigen_pairs[2][2]]
 Xtrnstd[1, :]' * w
 Xtrnpca = Xtrnstd * w
 
-colors = ["red", "blue", "green"]
-
 begin
+	colors = ["red", "blue", "green"]
 	scatter()
 	for (l, c) ∈ zip(unique(ytrn), colors)
 		scatter!(Xtrnpca[ytrn.==l, 1], Xtrnpca[ytrn.==l, 2], 
@@ -89,6 +88,7 @@ end
 
 # Principal component analysis in scikit learning
 function plot_decision_regions(X, y, mach, test_idx=[], len=300)	
+	colors = ["red", "blue", "lightgreen", "gray", "cyan"]
 	x1_min, x1_max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1
 	x2_min, x2_max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
 	xx1 = range(x1_min, x1_max, length=len)
@@ -102,7 +102,8 @@ function plot_decision_regions(X, y, mach, test_idx=[], len=300)
 	# plot data points 
 	for (i, cl) in enumerate(unique(y))
 		idx = findall(y .== cl)
-		scatter!(p, X[idx, 1], X[idx, 2], label="Class $cl", ms=4)
+		scatter!(p, X[idx, 1], X[idx, 2], 
+				 label="Class $cl", ms=4, color=colors[i])
 	end
 	scatter!()
 end
@@ -116,7 +117,8 @@ models("PCA")
 PCA = @load PCA pkg="MultivariateStats"
 doc("PCA", pkg="MultivariateStats")
 pca = PCA(maxoutdim=2)
-mach = machine(pca, Xtrnstd) |> fit!;
+dfXtrnstd = DataFrame(Xtrnstd, :auto)
+mach = machine(pca, dfXtrnstd) |> fit!;
 Xtrnpca = MLJ.transform(mach, Xtrnstd) |> DataFrame;
 Xtstpca = MLJ.transform(mach, Xtststd) |> DataFrame;
 
@@ -136,3 +138,45 @@ using Nova.MultiClass: OneVsRestClassifier
 using Nova.LinearModel: LogisticRegression
 
 pca = Decomposition.PCA(n_components=2)
+pca(Xtrnstd)
+Xtrnpca = pca(Xtrnstd, :transform)
+Xtstpca = pca(Xtststd, :transform)
+
+ovr = OneVsRestClassifier()
+ovr(Xtrnpca, ytrn)
+ŷtst = ovr(Xtstpca)
+sum(ytst .!= ŷtst)
+
+function plot_decision_regions(X, y, model, length=300)
+	colors = ["red", "blue", "lightgreen", "green", "cyan"]
+	x1_min, x1_max = minimum(X[:, 1])-1, maximum(X[:, 1])+1
+	x2_min, x2_max = minimum(X[:, 2])-1, maximum(X[:, 2])+1
+	xx1 = range(x1_min, x1_max, length=len)
+	xx2 = range(x2_min, x2_max, length=len)
+	z = [model([x1 x2])[1] for x1 ∈ xx1, x2 ∈ xx2]
+	p = contourf(xx1, xx2, z,
+				 color=[:red, :blue, :green],
+				 levels=3, alpha=0.3, legend=false)
+	# plot data points 
+	for (i, cl) ∈ enumerate(unique(y))
+		idx = findall(ytrn.==cl)
+		scatter!(p, X[idx, 1], X[idx, 2],
+				 label="Class $(cl)", color=colors[i])
+	end
+	scatter!()	
+end
+
+begin
+	plot_decision_regions(Xtrnpca, ytrn, ovr)
+	xlabel!("PC 1")
+	ylabel!("PC 2")
+	plot!(legend=:bottomleft)	
+end
+
+# Assessing feature contributions
+loadings = eigen_vecs .* sqrt.(eigen_vals)
+begin
+	bar(1:13, loadings[:, 1], xrotation=60)
+	ylabel!("Loadings for PC 1")
+	xticks!(1:13, nms[2:end])
+end

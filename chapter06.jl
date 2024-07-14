@@ -8,8 +8,7 @@ data = HTTP.get(filelink)
 df = CSV.read(data.body, DataFrame, header=false)
 
 using NovaML.PreProcessing: LabelEncoder
-X = df[:, 3:end] |> Matrix
-y = df[:, 2]
+X, y = df[:, 3:end] |> Matrix, df[:, 2]
 le = LabelEncoder()
 y = le(y)
 le.classes
@@ -34,10 +33,8 @@ lr = LogisticRegression()
 lr(Xtrn, ytrn)
 using NovaML.Metrics: accuracy_score
 
-ŷtrn = lr(Xtrn)
-ŷtst = lr(Xtst)
-accuracy_score(ŷtrn, ytrn)
-accuracy_score(ŷtst, ytst)
+ŷtrn, ŷtst = lr(Xtrn), lr(Xtst)
+accuracy_score(ŷtrn, ytrn), accuracy_score(ŷtst, ytst)
 
 Xtrn |> sc |> pca |> X -> lr(X, ytrn)
 ŷtst = Xtst |> sc |> pca |> lr
@@ -71,6 +68,7 @@ pipe = Pipe(
     StandardScaler(),
     PCA(n_components=2),
     LogisticRegression())
+
 pipe(Xtrn, ytrn)
 ŷ = pipe(Xtst)
 accuracy_score(ytst, ŷ)
@@ -88,12 +86,10 @@ pipe = Pipe(StandardScaler(), LogisticRegression(max_iter=10_000))
 trn_sizes, trn_scores, tst_scores = learning_curve(
     pipe, Xtrn, ytrn, 
     train_sizes = range(0.1, 1.0, length=10),
-    cv = 10)
+    cv = 10);
 
-trn_mean = mean.(trn_scores)
-trn_std = std.(trn_scores)
-tst_mean = mean.(tst_scores)
-tst_std = std.(tst_scores)
+trn_mean, trn_std = mean.(trn_scores), std.(trn_scores)
+tst_mean, tst_std = mean.(tst_scores), std.(tst_scores)
 
 begin
     plot(trn_sizes, trn_mean, 
@@ -120,5 +116,61 @@ begin
     ylims!(0.8, 1.03)
     xgrid!(true)
     ygrid!(true)   
+end
+
+############################################################333
+using NovaML.ModelSelection: validation_curve
+
+# Define the parameter range
+param_range = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]
+
+# Create a pipeline with StandardScaler and LogisticRegression
+model = Pipe(
+    StandardScaler(),
+    LogisticRegression(num_iter=1000)
+)
+
+# Perform validation curve analysis
+train_scores, test_scores = validation_curve(
+    model,
+    Xtrn,
+    ytrn,
+    param_dict=Dict(:LogisticRegression => :λ),
+    param_range=param_range,
+    cv=10,
+    scoring="accuracy"
+)
+
+train_mean = mean(train_scores, dims=2)
+train_std = std(train_scores, dims=2)
+test_mean = mean(test_scores, dims=2)
+test_std = std(test_scores, dims=2)
+
+begin
+    plot(param_range, train_mean, yerr=train_std,
+         color=:blue, marker=:circle, markersize=5, 
+         label="Training accuracy", xscale=:log10)
+
+    plot!(param_range, test_mean, yerr=test_std,
+          color=:green, linestyle=:dash,
+          marker=:square, markersize=5, 
+          label="Validation accuracy")
+
+    # Add error bands
+    plot!(param_range, train_mean + train_std, 
+          fillrange=train_mean - train_std, 
+          alpha=0.15, color=:blue, label=nothing)
+
+    plot!(param_range, test_mean + test_std, 
+          fillrange=test_mean - test_std, 
+          alpha=0.15, color=:green, label=nothing)
+
+    # Customize the plot
+    xlabel!("Parameter λ")
+    ylabel!("Accuracy")
+    title!("Validation Curve")
+    ylims!(0.5, 1.0)
+    xgrid!(true)
+    plot!(legend=:bottomleft)    
 end
 

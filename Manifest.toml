@@ -1432,8 +1432,8 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
 
 [[deps.NovaML]]
-deps = ["DataStructures", "Distances", "LinearAlgebra", "Optim", "ProgressBars", "Random", "Statistics", "StatsBase"]
-path = "C:\\USers\\ilker.arslan\\.julia\\dev\\NovaML.jl"
+deps = ["DataStructures", "Distances", "Distributions", "LinearAlgebra", "Optim", "ProgressBars", "Random", "Statistics", "StatsBase"]
+path = "C:\\Users\\ilker.arslan\\.julia\\dev\\NovaML.jl"
 uuid = "3f482e55-661e-4eec-8a53-436578a72954"
 version = "0.0.1"
 

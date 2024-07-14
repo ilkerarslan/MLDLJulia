@@ -4,7 +4,7 @@
 using Revise
 using DataFrames, HTTP, Random, CSV
 
-using Nova.ModelSelection: train_test_split
+using NovaML.ModelSelection: train_test_split
 
 filelink = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
 res = HTTP.get(filelink)
@@ -37,7 +37,7 @@ Xtrn, Xtst, ytrn, ytst = train_test_split(X, y,
 										  random_state=0, 
 										  stratify=y)
 
-using Nova.PreProcessing: StandardScaler										  
+using NovaML.PreProcessing: StandardScaler
 sc = StandardScaler()
 sc(Xtrn)
 Xtrnstd, Xtststd = sc(Xtrn), sc(Xtst)
@@ -84,7 +84,6 @@ begin
 	end
 	scatter!()	
 end
-
 
 # Principal component analysis in scikit learning
 function plot_decision_regions(X, y, mach, test_idx=[], len=300)	
@@ -133,16 +132,17 @@ ovr = MultinomialClassifier(solver=MLJLinearModels.LBFGS(
 mach = machine(ovr, Xtrnpca, ytrncat) |> fit!;
 plot_decision_regions(Xtrnpca, ytrncat, mach)
 
-using Nova
-using Nova.MultiClass: OneVsRestClassifier
-using Nova.LinearModel: LogisticRegression
+using NovaML.MultiClass: OneVsRestClassifier
+using NovaML.LinearModel: LogisticRegression
+using NovaML.Decomposition: PCA
 
-pca = Decomposition.PCA(n_components=2)
+pca = PCA(n_components=2)
 pca(Xtrnstd)
-Xtrnpca = pca(Xtrnstd, :transform)
-Xtstpca = pca(Xtststd, :transform)
+Xtrnpca = pca(Xtrnstd)
+Xtstpca = pca(Xtststd)
 
-ovr = OneVsRestClassifier()
+lr = LogisticRegression()
+ovr = OneVsRestClassifier(lr)
 ovr(Xtrnpca, ytrn)
 ŷtst = ovr(Xtstpca)
 sum(ytst .!= ŷtst)
@@ -151,8 +151,8 @@ function plot_decision_regions(X, y, model, length=300)
 	colors = ["red", "blue", "lightgreen", "green", "cyan"]
 	x1_min, x1_max = minimum(X[:, 1])-1, maximum(X[:, 1])+1
 	x2_min, x2_max = minimum(X[:, 2])-1, maximum(X[:, 2])+1
-	xx1 = range(x1_min, x1_max, length=len)
-	xx2 = range(x2_min, x2_max, length=len)
+	xx1 = range(x1_min, x1_max, length=length)
+	xx2 = range(x2_min, x2_max, length=length)
 	z = [model([x1 x2])[1] for x1 ∈ xx1, x2 ∈ xx2]
 	p = contourf(xx1, xx2, z,
 				 color=[:red, :blue, :green],

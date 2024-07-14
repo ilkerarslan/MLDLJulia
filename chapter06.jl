@@ -118,7 +118,6 @@ begin
     ygrid!(true)   
 end
 
-############################################################333
 using NovaML.ModelSelection: validation_curve
 
 # Define the parameter range
@@ -174,3 +173,6 @@ begin
     plot!(legend=:bottomleft)    
 end
 
+using NovaML.SVM: SVC
+
+svm = SVC(kernel="linear", C=1.0, random_state=1)

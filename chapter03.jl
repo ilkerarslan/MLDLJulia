@@ -2,15 +2,14 @@ using Revise
 using RDatasets, DataFrames, StatsBase, LinearAlgebra
 using Random, Plots, StatsBase
 
-using Nova
-using Nova.ModelSelection: train_test_split
-using Nova.PreProcessing: StandardScaler
-using Nova.LinearModel: MulticlassPerceptron, LogisticRegression
-using Nova.Metrics: accuracy_score
-using Nova.MultiClass: OneVsRestClassifier
-using Nova.Tree: DecisionTreeClassifier
-using Nova.Ensemble: RandomForestClassifier
-using Nova.Neighbors: KNeighborsClassifier
+using NovaML.ModelSelection: train_test_split
+using NovaML.PreProcessing: StandardScaler
+using NovaML.LinearModel: MulticlassPerceptron, LogisticRegression
+using NovaML.Metrics: accuracy_score
+using NovaML.MultiClass: OneVsRestClassifier
+using NovaML.Tree: DecisionTreeClassifier
+using NovaML.Ensemble: RandomForestClassifier
+using NovaML.Neighbors: KNeighborsClassifier
 
 using MLJ
 
@@ -33,10 +32,9 @@ println("Labels counts in ytrn: ", values(StatsBase.countmap(ytrn)))
 println("Labels counts in ytst: ", values(StatsBase.countmap(ytst)))
 
 stdscaler = StandardScaler()
-
 stdscaler(Xtrn)
-Xtrn_std = stdscaler(Xtrn)
-Xtst_std = stdscaler(Xtst)
+Xtrnstd = stdscaler(Xtrn)
+Xtststd = stdscaler(Xtst)
 
 # Multiclass Perceptron
 mcp = MulticlassPerceptron(η=0.1, random_state=1)
@@ -112,11 +110,12 @@ Xtrn01_subset = Xtrn_std[idx, :] |> Matrix
 ytrn01_subset = ytrn[idx]
 ytrn01_subset = [x == 0 ? 0 : 1 for x in ytrn01_subset]
 
-lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, optim_alg=:Batch)
+lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, solver=:batch)
 lrgd(Xtrn01_subset, ytrn01_subset)
 plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
 
-ovr = OneVsRestClassifier()
+lr = LogisticRegression()
+ovr = OneVsRestClassifier(lr)
 ovr(Xtrn_std, ytrn)
 ovr.classifiers[3]
 
@@ -129,21 +128,30 @@ ovr(Xtst_std, type=:probs)
 weights = Matrix(undef, 0, 2)
 params = []
 for l in Int.(-5:5)
-    ovr = OneVsRestClassifier(λ=10.0^l)
+    lr = LogisticRegression(λ=10.0^l)
+    ovr = OneVsRestClassifier(lr)
     ovr(Xtrn_std, ytrn)
     weights = vcat(weights, ovr.classifiers[2].w')
     push!(params, 10.0^l)
 end
 
-plot(params, weights[:, 1], label="Petal length", xaxis=:log)
-plot!(params, weights[:, 2], label="Petal width", xaxis=:log)
-xlabel!("λ")
-ylabel!("Weights")
+begin
+    plot(params, weights[:, 1], label="Petal length", xaxis=:log)
+    plot!(params, weights[:, 2], label="Petal width", xaxis=:log)
+    xlabel!("λ")
+    ylabel!("Weights")        
+end
 
 # Maximum margin classification with support vector machines
 iris = dataset("datasets", "iris")
 X = Matrix(iris[:, 1:4])
 y = iris.Species
+
+
+using NovaML.SVM: SVC
+svm = SVC(kernel="linear", C=1.0, random_state=1)
+svm(Xtrn_std, ytrn)
+ŷtst = svm(Xtst_std)
 
 SVC = @load SVC pkg=LIBSVM
 model = SVC(kernel=(x1, x2) -> x1'*x2)

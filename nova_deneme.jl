@@ -125,3 +125,62 @@ adj_r2_score(ytst, ŷ, n_features=size(Xtrn, 2))
 (ytst .- ŷ).^2 |> mean
 mse(ytst, ŷ)
 
+
+using RDatasets, DataFrames
+
+iris = dataset("datasets", "iris")
+X = iris[:, 1:4] |> Matrix
+y = iris.Species
+map_species = Dict(
+    "setosa" => 0,
+    "versicolor" => 1,
+    "virginica" => 2
+)
+y = [map_species[k] for k in y]
+
+using NovaML.ModelSelection: train_test_split
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)
+
+println("Shape of Xtrn: ", size(Xtrn))
+println("Shape of ytrn: ", size(ytrn))
+println("Shape of Xtst: ", size(Xtst))
+println("Shape of ytst: ", size(ytst))
+
+using NovaML.PreProcessing: StandardScaler
+stdscaler = StandardScaler()
+Xtrnstd = stdscaler(Xtrn)
+Xtststd = stdscaler(Xtst)
+
+println("Shape of Xtrnstd: ", size(Xtrnstd))
+println("Shape of Xtststd: ", size(Xtststd))
+
+using NovaML.SVM: SVC
+svm = SVC(kernel="linear", C=1.0, random_state=1, max_iter=1000, tol=1e-3)
+svm(Xtrnstd, ytrn)
+println("Shape of Xtrnstd: ", size(Xtrnstd))
+println("Shape of ytrn: ", size(ytrn))
+println("Unique values in ytrn: ", unique(ytrn))
+ŷtst = svm(Xtststd) 
+using NovaML.Metrics: accuracy_score
+accuracy_score(ŷtst, ytst)
+
+println("Shape of ŷtst: ", size(ŷtst))
+println("Unique values in ŷtst: ", unique(ŷtst))
+
+svm_rbf = SVC(kernel="rbf", C=1.0, gamma="scale", random_state=1) 
+svm_rbf(Xtrnstd, ytrn)
+
+svm_poly = SVC(kernel="poly", C=1.0, degree=3, gamma="scale", random_state=1)
+svm_poly(Xtrnstd, ytrn)
+
+
+
+using NovaML.LinearModel: LogisticRegression
+using NovaML.MultiClass: OneVsRestClassifier
+
+lr = LogisticRegression()
+ovr = OneVsRestClassifier(lr)
+
+ovr(Xtrnstd, ytrn)
+ŷovrtst = ovr(Xtststd)
+accuracy_score(ŷovrtst, ytst)

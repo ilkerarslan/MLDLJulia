@@ -1,7 +1,6 @@
 using Revise
 
-using Nova
-using Nova.LinearModel: Perceptron, Adaline
+using NovaML.LinearModel: Perceptron, Adaline
 
 using LinearAlgebra, RDatasets, Plots
 using DataFrames, Random, Statistics

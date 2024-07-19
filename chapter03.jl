@@ -11,8 +11,6 @@ using NovaML.Tree: DecisionTreeClassifier
 using NovaML.Ensemble: RandomForestClassifier
 using NovaML.Neighbors: KNeighborsClassifier
 
-using MLJ
-
 # Data
 iris = dataset("datasets", "iris")
 X = iris[:, 3:4] |> Matrix
@@ -38,8 +36,8 @@ Xtststd = stdscaler(Xtst)
 
 # Multiclass Perceptron
 mcp = MulticlassPerceptron(η=0.1, random_state=1)
-mcp(Xtrn_std, ytrn)
-ŷ = mcp(Xtst_std)
+mcp(Xtrnstd, ytrn)
+ŷ = mcp(Xtststd)
 print("Misclassified examples: $(sum(ytst .!= ŷ))")
 accuracy_score(ytst, ŷ)
 
@@ -65,7 +63,7 @@ function plot_decision_region(model::DecisionTreeClassifier, X::Matrix, y::Vecto
     scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
 end
 
-Xcomb_std = vcat(Xtrn_std, Xtst_std)
+Xcomb_std = vcat(Xtrnstd, Xtststd)
 ycomb = vcat(ytrn, ytst)
 
 plot_decision_region(mcp, Xcomb_std, ycomb)
@@ -106,7 +104,7 @@ begin
 end
 
 idx = (ytrn .== 0) .|| (ytrn .== 1)
-Xtrn01_subset = Xtrn_std[idx, :] |> Matrix
+Xtrn01_subset = Xtrnstd[idx, :] |> Matrix
 ytrn01_subset = ytrn[idx]
 ytrn01_subset = [x == 0 ? 0 : 1 for x in ytrn01_subset]
 
@@ -116,13 +114,13 @@ plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
 
 lr = LogisticRegression()
 ovr = OneVsRestClassifier(lr)
-ovr(Xtrn_std, ytrn)
+ovr(Xtrnstd, ytrn)
 ovr.classifiers[3]
 
-ŷ = ovr(Xtst_std)
+ŷ = ovr(Xtststd)
 accuracy_score(ytst, ŷ)
 
-ovr(Xtst_std, type=:probs)
+ovr(Xtststd, type=:probs)
 
 # Tackling overfitting via regularization 
 weights = Matrix(undef, 0, 2)
@@ -130,7 +128,7 @@ params = []
 for l in Int.(-5:5)
     lr = LogisticRegression(λ=10.0^l)
     ovr = OneVsRestClassifier(lr)
-    ovr(Xtrn_std, ytrn)
+    ovr(Xtrnstd, ytrn)
     weights = vcat(weights, ovr.classifiers[2].w')
     push!(params, 10.0^l)
 end
@@ -149,8 +147,8 @@ y = iris.Species
 
 
 using NovaML.SVM: SVC
-svm = SVC(kernel="linear", C=1.0, random_state=1)
-svm(Xtrn_std, ytrn)
+svm = SVC(kernel=:linear, C=1.0, gamma=:scale)
+svm(Xtrnstd, ytrn)
 ŷtst = svm(Xtst_std)
 
 SVC = @load SVC pkg=LIBSVM
@@ -239,36 +237,6 @@ begin
     # Highlight test examples
 end
 
-
-Random.seed!(1)
-svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=100.0, cost=1.0)
-mach = machine(svm, Xtrn_std, categorical(ytrn)) |> fit!;
-begin
-    test_idx = 105:150
-    len = 300
-    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
-
-    # Plot the decision surface
-    x1_min, x1_max = minimum(Xcomb_std[:, 1]) - 1, maximum(Xcomb_std[:, 1]) + 1
-    x2_min, x2_max = minimum(Xcomb_std[:, 2]) - 1, maximum(Xcomb_std[:, 2]) + 1
-    xx1 = range(x1_min, x1_max, length=len)
-    xx2 = range(x2_min, x2_max, length=len)        
-    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
-
-    p = contourf(xx1, xx2, Z, 
-                 color=[:red, :blue, :lightgreen],
-                 levels=3, alpha=0.3, legend=false);
-
-    # Plot data points
-    for (i, cl) in enumerate(unique(ycomb))
-        idx = findall(ycomb .== cl)
-        scatter!(p, Xcomb_std[idx, 1], Xcomb_std[idx, 2], marker=markers[i], label="Class $cl", ms=4)
-    end
-    scatter!()
-    # Highlight test examples
-end
-
 # Decision Tree Learning
 entropy(p) = -p*log2(p) - (1-p)*log2(1-p)
 x = 0.01:0.01:1
@@ -299,45 +267,25 @@ plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
 Xcomb = vcat(Xtrn, Xtst)
 ycomb = vcat(ytrn, ytst)
 
-tree = DecisionTreeClassifier(max_depth=4, random_state=1)
+
+using NovaML.Tree
+tree = Tree.DecisionTreeClassifier(max_depth=4, random_state=1)
 tree(Xtrn, ytrn)
 ŷ = tree(Xtst)
 sum(ytst .!= ŷ)
 plot_decision_region(tree, Xcomb, ycomb)
 
-## Decision tree with MLJ
-models("DecisionTree")
-doc("DecisionTreeClassifier", pkg="BetaML")
-DecisionTree = @load DecisionTreeClassifier pkg=BetaML
-tree_model = DecisionTree(
-    max_depth=4,
-    splitting_criterion=BetaML.Utils.gini,
-    rng=Random.seed!(1)
-)
-mach = machine(tree_model, Xtrn, ytrn) |> fit!;
-
 # Random Forest Classifier
+using NovaML.Ensemble: RandomForestClassifier
 forest = RandomForestClassifier(n_estimators=25, random_state=1)
 forest(Xtrn, ytrn)
 ŷ = forest(Xtst)
 sum(ŷ .!= ytst)
 
-models("Forest")
-doc("RandomForestClassifier", pkg="BetaML")
-RandomForest = @load RandomForestClassifier pkg=BetaML 
-forest = RandomForest(
-    n_trees=25,
-    max_depth=4,
-    rng=Random.seed!(1)
-)
-mach = machine(forest, Xtrn, ytrn) |> fit!;
-
 # K Nearest Neighbors
-models("Neighbor")
-KNN = @load KNNClassifier pkg=NearestNeighborModels
-doc("KNNClassifier", pkg="NearestNeighborModels")
+using NovaML.Neighbors: KNeighborsClassifier
 
-knn = KNN(
+knn = KNeighborsClassifier(
     K=5,   
     algorithm=:kdtree
 )
@@ -345,9 +293,7 @@ knn = KNN(
 mach = machine(knn, Xtrn, ytrn) |> fit!;
 
 knn = KNeighborsClassifier(
-    n_neighbors=5,
-    n_jobs=-1
-)
+    n_neighbors=5)
 
 knn(Xtrn, ytrn)
 ŷ = knn(Xtst)

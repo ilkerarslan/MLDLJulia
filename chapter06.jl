@@ -175,4 +175,8 @@ end
 
 using NovaML.SVM: SVC
 
-svm = SVC(kernel="linear", C=1.0, random_state=1)
+svm = SVC(kernel=:linear, C=1.0)
+
+# Create NovaML.ModelSelection: GridSearchCV
+
+svm(Xtrn, ytrn)

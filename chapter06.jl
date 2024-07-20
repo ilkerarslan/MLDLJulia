@@ -173,10 +173,16 @@ begin
     plot!(legend=:bottomleft)    
 end
 
+using NovaML.PreProcessing: StandardScaler
+scaler = StandardScaler()
+Xtrnstd = scaler(Xtrn)
+Xtststd = scaler(Xtst)
+
 using NovaML.SVM: SVC
-
-svm = SVC(kernel=:linear, C=1.0)
-
-# Create NovaML.ModelSelection: GridSearchCV
-
-svm(Xtrn, ytrn)
+svm = SVC(kernel=:rbf, C=1.0, gamma=:scale)
+svm(Xtrnstd, ytrn)
+ŷ = svm(Xtststd)
+using NovaML.Metrics: accuracy_score
+accuracy_score(ŷ, ytst)
+ŷtrn = svm(Xtrnstd)
+accuracy_score(ŷtrn, ytrn)

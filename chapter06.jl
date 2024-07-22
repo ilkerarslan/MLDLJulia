@@ -186,6 +186,7 @@ accuracy_score(ŷ, ytst)
 ŷtrn = svm(Xtrnstd)
 accuracy_score(ŷtrn, ytrn)
 
+# GridSearchCV
 using NovaML.ModelSelection: GridSearchCV
 
 scaler = StandardScaler()
@@ -213,3 +214,5 @@ bp[1]
 bp[2:end]
 
 clf  = gs.best_params[1]
+
+# RandomSearchCV

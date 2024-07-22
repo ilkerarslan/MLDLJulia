@@ -173,7 +173,6 @@ begin
     plot!(legend=:bottomleft)    
 end
 
-using NovaML.PreProcessing: StandardScaler
 scaler = StandardScaler()
 Xtrnstd = scaler(Xtrn)
 Xtststd = scaler(Xtst)
@@ -186,3 +185,31 @@ using NovaML.Metrics: accuracy_score
 accuracy_score(ŷ, ytst)
 ŷtrn = svm(Xtrnstd)
 accuracy_score(ŷtrn, ytrn)
+
+using NovaML.ModelSelection: GridSearchCV
+
+scaler = StandardScaler()
+svc = SVC()
+pipe_svc = Pipe(scaler, svc)
+param_range = [10.0, 100.0, 1000.0]
+param_grid = [
+    [svc, (:C, param_range), (:kernel, [:linear])],
+    [svc, (:C, param_range), (:gamma, param_range), (:kernel, [:rbf])]
+]
+
+gs = GridSearchCV(
+    estimator=pipe_svc,
+    param_grid=param_grid,
+    scoring=accuracy_score,
+    cv=10,
+    refit=true
+)
+
+gs(Xtrn, ytrn)
+
+gs.best_score
+bp = gs.best_params
+bp[1]
+bp[2:end]
+
+clf  = gs.best_params[1]

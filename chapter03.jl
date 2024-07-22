@@ -2,15 +2,6 @@ using Revise
 using RDatasets, DataFrames, StatsBase, LinearAlgebra
 using Random, Plots, StatsBase
 
-using NovaML.ModelSelection: train_test_split
-using NovaML.PreProcessing: StandardScaler
-using NovaML.LinearModel: MulticlassPerceptron, LogisticRegression
-using NovaML.Metrics: accuracy_score
-using NovaML.MultiClass: OneVsRestClassifier
-using NovaML.Tree: DecisionTreeClassifier
-using NovaML.Ensemble: RandomForestClassifier
-using NovaML.Neighbors: KNeighborsClassifier
-
 # Data
 iris = dataset("datasets", "iris")
 X = iris[:, 3:4] |> Matrix
@@ -23,22 +14,27 @@ map_species = Dict(
 y = [map_species[k] for k in y]
 print("Class labels: ", unique(y))
 
+using NovaML.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)
 
 println("Labels count in y: ", values(StatsBase.countmap(y)))
 println("Labels counts in ytrn: ", values(StatsBase.countmap(ytrn)))
 println("Labels counts in ytst: ", values(StatsBase.countmap(ytst)))
 
+using NovaML.PreProcessing: StandardScaler
 stdscaler = StandardScaler()
 stdscaler(Xtrn)
 Xtrnstd = stdscaler(Xtrn)
 Xtststd = stdscaler(Xtst)
 
 # Multiclass Perceptron
+using NovaML.MultiClass: MulticlassPerceptron
 mcp = MulticlassPerceptron(η=0.1, random_state=1)
 mcp(Xtrnstd, ytrn)
 ŷ = mcp(Xtststd)
 print("Misclassified examples: $(sum(ytst .!= ŷ))")
+
+using NovaML.Metrics: accuracy_score
 accuracy_score(ytst, ŷ)
 
 function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0.02)
@@ -52,7 +48,7 @@ function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0
     scatter!(X[:, 1], X[:, 2], group = y, markersize = 5, markerstrokewidth = 0.5)
 end
 
-function plot_decision_region(model::DecisionTreeClassifier, X::Matrix, y::Vector, resolution::Float64=0.02)
+function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0.02)
     x1min, x1max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1 
     x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
 
@@ -108,10 +104,12 @@ Xtrn01_subset = Xtrnstd[idx, :] |> Matrix
 ytrn01_subset = ytrn[idx]
 ytrn01_subset = [x == 0 ? 0 : 1 for x in ytrn01_subset]
 
+using NovaML.LinearModel: LogisticRegression
 lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, solver=:batch)
 lrgd(Xtrn01_subset, ytrn01_subset)
 plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
 
+using NovaML.MultiClass: OneVsRestClassifier
 lr = LogisticRegression()
 ovr = OneVsRestClassifier(lr)
 ovr(Xtrnstd, ytrn)
@@ -145,97 +143,12 @@ iris = dataset("datasets", "iris")
 X = Matrix(iris[:, 1:4])
 y = iris.Species
 
+# NovaML.SVM.SVC currently supports only binary  classification
+#using NovaML.SVM: SVC
+#svm = SVC(kernel=:linear, C=1.0, gamma=:scale)
+#svm(Xtrnstd, ytrn)
+#ŷtst = svm(Xtst_std)
 
-using NovaML.SVM: SVC
-svm = SVC(kernel=:linear, C=1.0, gamma=:scale)
-svm(Xtrnstd, ytrn)
-ŷtst = svm(Xtst_std)
-
-SVC = @load SVC pkg=LIBSVM
-model = SVC(kernel=(x1, x2) -> x1'*x2)
-mach = machine(model, Xtrn, ytrn) |> fit!;
-ypreds = MLJ.predict(mach, Xtst)
-sum(ypreds .!= ytst)
-
-# Solving nonlinear problems using a kernel SVM
-using Distributions
-using LIBSVM
-Random.seed!(1)
-X_xor = rand(Normal(0, 1), (200, 2))
-y_xor = xor.(X_xor[:, 1] .> 0, X_xor[:, 2] .> 0)
-y_xor = Int.(y_xor) 
-
-begin
-    scatter(X_xor[y_xor.==1, 1], X_xor[y_xor.==1, 2],
-            color=:royalblue, marker=:square, label="Class 1")
-    scatter!(X_xor[y_xor.==0, 1], X_xor[y_xor.==0, 2],
-             color=:tomato, marker=:circle, label="Class 0")
-    
-    # Set plot properties
-    xlims!((-3, 3))
-    ylims!((-3, 3))
-    xlabel!("Feature 1")
-    ylabel!("Feature 2")        
-end
-Random.seed!(1)
-svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.10, cost=10.0)
-mach = machine(svm, X_xor, categorical(y_xor)) |> fit!;
-
-begin
-    test_idx = []
-    len = 300
-    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
-
-    # Plot the decision surface
-    x1_min, x1_max = minimum(X_xor[:, 1]) - 1, maximum(X_xor[:, 1]) + 1
-    x2_min, x2_max = minimum(X_xor[:, 2]) - 1, maximum(X_xor[:, 2]) + 1
-    xx1 = range(x1_min, x1_max, length=len)
-    xx2 = range(x2_min, x2_max, length=len)        
-    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
-
-    p = contourf(xx1, xx2, Z, 
-                 color=[:red, :blue, :lightgreen],
-                 levels=3, alpha=0.3, legend=false);
-
-    # Plot data points
-    for (i, cl) in enumerate(unique(y_xor))
-        idx = findall(y_xor .== cl)
-        scatter!(p, X_xor[idx, 1], X_xor[idx, 2], marker=markers[i], label="Class $cl", ms=4)
-    end
-    scatter!()
-    # Highlight test examples
-end
-
-Random.seed!(1)
-svm = SVC(kernel=LIBSVM.Kernel.RadialBasis, gamma=0.2, cost=1.0)
-mach = machine(svm, Xtrn_std, categorical(ytrn)) |> fit!;
-
-begin
-    test_idx = 105:150
-    len = 300
-    markers = [:circle, :rect, :utriangle, :dtriangle, :diamond]
-    colors = [:red, :lightblue, :lightgreen, :gray, :cyan]
-
-    # Plot the decision surface
-    x1_min, x1_max = minimum(Xcomb_std[:, 1]) - 1, maximum(Xcomb_std[:, 1]) + 1
-    x2_min, x2_max = minimum(Xcomb_std[:, 2]) - 1, maximum(Xcomb_std[:, 2]) + 1
-    xx1 = range(x1_min, x1_max, length=len)
-    xx2 = range(x2_min, x2_max, length=len)        
-    Z = [MLJ.predict(mach, [x1 x2])[1] for x1 in xx1, x2 in xx2]    
-
-    p = contourf(xx1, xx2, Z, 
-                 color=[:red, :blue, :lightgreen],
-                 levels=3, alpha=0.3, legend=false);
-
-    # Plot data points
-    for (i, cl) in enumerate(unique(ycomb))
-        idx = findall(ycomb .== cl)
-        scatter!(p, Xcomb_std[idx, 1], Xcomb_std[idx, 2], marker=markers[i], label="Class $cl", ms=4)
-    end
-    scatter!()
-    # Highlight test examples
-end
 
 # Decision Tree Learning
 entropy(p) = -p*log2(p) - (1-p)*log2(1-p)
@@ -256,46 +169,40 @@ labs = ["Ent", "Ent sc", "Gini", "Miscl."]
 lines = [:solid, :solid, :dash, :dashdot]
 colors = [:black, :lightgray, :red, :green]
 
-p = plot(ylims=[0.0, 1.1], xlabel="p(i=1)", ylabel="impurity index");
-for (i, lab, ls, c) in zip(funcs, labs, lines, colors)
-    plot!(p, x, i, label=lab, ls=ls, lw=2, color=c)
+begin
+    p = plot(ylims=[0.0, 1.1], xlabel="p(i=1)", ylabel="impurity index");
+    for (i, lab, ls, c) in zip(funcs, labs, lines, colors)
+        plot!(p, x, i, label=lab, ls=ls, lw=2, color=c)
+    end
+    hline!(p, [0.5], lw=1, color=:black, ls=:dash, label=nothing);
+    hline!(p, [1], lw=1, color=:black, ls=:dash, label=nothing);
+    plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
 end
-hline!(p, [0.5], lw=1, color=:black, ls=:dash, label=nothing);
-hline!(p, [1], lw=1, color=:black, ls=:dash, label=nothing);
-plot!(p, legend=:outertop, legendcolumns=4, margin=10Plots.mm)
 
 Xcomb = vcat(Xtrn, Xtst)
 ycomb = vcat(ytrn, ytst)
 
-
-using NovaML.Tree
-tree = Tree.DecisionTreeClassifier(max_depth=4, random_state=1)
+using NovaML.Tree: DecisionTreeClassifier
+tree = DecisionTreeClassifier(max_depth=4, random_state=1)
 tree(Xtrn, ytrn)
 ŷ = tree(Xtst)
 sum(ytst .!= ŷ)
 plot_decision_region(tree, Xcomb, ycomb)
+accuracy_score(ŷ, ytst)
 
 # Random Forest Classifier
 using NovaML.Ensemble: RandomForestClassifier
-forest = RandomForestClassifier(n_estimators=25, random_state=1)
+forest = RandomForestClassifier(n_estimators=1000, random_state=1)
 forest(Xtrn, ytrn)
 ŷ = forest(Xtst)
 sum(ŷ .!= ytst)
 
 # K Nearest Neighbors
 using NovaML.Neighbors: KNeighborsClassifier
-
 knn = KNeighborsClassifier(
-    K=5,   
-    algorithm=:kdtree
-)
-
-mach = machine(knn, Xtrn, ytrn) |> fit!;
-
-knn = KNeighborsClassifier(
-    n_neighbors=5)
+    n_neighbors=5,
+    algorithm=:auto)
 
 knn(Xtrn, ytrn)
 ŷ = knn(Xtst)
 sum(ŷ .!= ytst)
-

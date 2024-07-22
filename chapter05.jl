@@ -107,30 +107,6 @@ function plot_decision_regions(X, y, mach, test_idx=[], len=300)
 	scatter!()
 end
 
-using MLJ
-models("Multinomial")
-doc("MultinomialClassifier", pkg="MLJLinearModels")
-MultinomialClassifier = @load MultinomialClassifier pkg=MLJLinearModels
-
-models("PCA")
-PCA = @load PCA pkg="MultivariateStats"
-doc("PCA", pkg="MultivariateStats")
-pca = PCA(maxoutdim=2)
-dfXtrnstd = DataFrame(Xtrnstd, :auto)
-mach = machine(pca, dfXtrnstd) |> fit!;
-Xtrnpca = MLJ.transform(mach, Xtrnstd) |> DataFrame;
-Xtstpca = MLJ.transform(mach, Xtststd) |> DataFrame;
-
-ytrncat = categorical(ytrn)
-ytstcat = categorical(ytst)
-
-using MLJLinearModels, Optim
-ovr = MultinomialClassifier(solver=MLJLinearModels.LBFGS(
-	optim_options = Optim.Options(time_limit = 20),
-    )
-)
-mach = machine(ovr, Xtrnpca, ytrncat) |> fit!;
-plot_decision_regions(Xtrnpca, ytrncat, mach)
 
 using NovaML.MultiClass: OneVsRestClassifier
 using NovaML.LinearModel: LogisticRegression

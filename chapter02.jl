@@ -20,7 +20,7 @@ scatter(X[:, 1], X[:, 2],
         ylabel="Petal Length (cm)",
         title="Iris Dataset: Setosa vs. Versicolor")
 
-pn = Perceptron(η=0.1, num_iter=10, optim_alg=:SGD)
+pn = Perceptron(η=0.1, num_iter=10, solver=:sgd)
 pn(X, y)
 pn(X)
 
@@ -51,8 +51,8 @@ begin
 end
 
 # Adaline
-ada1 = Adaline(η=0.1, num_iter=15, optim_alg=:Batch)
-ada2 = Adaline(η=0.0001, num_iter=15, optim_alg=:Batch)
+ada1 = Adaline(η=0.1, num_iter=15, solver=:batch)
+ada2 = Adaline(η=0.0001, num_iter=15, solver=:batch)
 
 ada1(X, y)
 ada2(X, y)
@@ -78,7 +78,7 @@ X_std = copy(X)
 X_std[:, 1] = (X_std[:, 1] .- mean(X_std[:, 1])) ./ std(X_std[:, 1]) 
 X_std[:, 2] = (X_std[:, 2] .- mean(X_std[:, 2])) ./ std(X_std[:, 2]) 
 
-ada_gd = Adaline(η=0.5, num_iter=20, optim_alg=:Batch)
+ada_gd = Adaline(η=0.5, num_iter=20, solver=:batch)
 ada_gd(X_std, y)
 
 begin
@@ -96,7 +96,7 @@ begin
 end
 
 
-ada_sgd = Adaline(num_iter=15, η=0.01, random_state=1, optim_alg=:SGD)
+ada_sgd = Adaline(num_iter=15, η=0.01, random_state=1, solver=:sgd)
 ada_sgd(X_std, y)
 
 begin

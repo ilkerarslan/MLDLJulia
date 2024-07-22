@@ -3,7 +3,7 @@
 ### Identifying missing values in tabular data 
 using Revise
 using CSV, DataFrames
-using Nova.Impute: SimpleImputer
+using NovaML.Impute: SimpleImputer
 
 csv_data = """
 A,B,C,D
@@ -52,21 +52,6 @@ drop_rows(df, 4)
 # only drop rows where missing appear in specific columns (here: :C)
 dropmissing(df, :C)
 
-# Imputing missing values 
-using MLJ, Statistics
-
-r = [missing, 8.0, 6.0, 3.0]
-push!(df, r, promote=true)
-
-FillImputer = @load FillImputer pkg=MLJModels
-imputer = FillImputer(
-    continuous_fill = mean∘skipmissing,
-    count_fill = mean∘skipmissing
-)
-mach = machine(imputer, df) |> fit!
-MLJ.transform(mach, df)
-
-df
 impute = SimpleImputer(
     strategy = :mean
 )
@@ -116,18 +101,18 @@ df
 
 newcol = replace(col, labels...)
 
-using Nova.PreProcessing: LabelEncoder
+using NovaML.PreProcessing: LabelEncoder
 lblenc = LabelEncoder()
 lblenc(df.size)
 labels = ["M", "L", "XL", "M", "L", "M"]
-lbls = lblenc(labels, :transform)
+lbls = lblenc(labels)
 lblenc(lbls, :inverse_transform)
 
 labels = ["M", "L", "XL", "M", "L", "M"]
-using Nova.PreProcessing: OneHotEncoder
+using NovaML.PreProcessing: OneHotEncoder
 ohe = OneHotEncoder()
 ohe(labels)
-onehot = ohe(labels, :transform)
+onehot = ohe(labels)
 ohe(onehot, :inverse_transform)
 
 # Partitioning a dataset into separate training and test datasets 
@@ -158,19 +143,19 @@ wine
 X, y = wine[:, 2:end], wine[:, 1]
 X = Matrix(X)
 
-using Nova.ModelSelection: train_test_split
+using NovaML.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
                                           test_size=0.3, 
                                           random_state=0, 
                                           stratify=y)
 
-using Nova.PreProcessing: MinMaxScaler
+using NovaML.PreProcessing: MinMaxScaler
 mmsc = MinMaxScaler()
 mmsc(Xtrn)
 Xtrn_norm = mmsc(Xtrn)
 Xtst_norm = mmsc(Xtst)
 
-using Nova.PreProcessing: StandardScaler
+using NovaML.PreProcessing: StandardScaler
 stdsc = StandardScaler()
 stdsc(Xtrn)
 Xtrn_std = stdsc(Xtrn)
@@ -178,19 +163,22 @@ Xtst_std = stdsc(Xtst)
 
 # Selecting meaningful features
 ##Sparse solutions with L1 regularization
-using Nova.MultiClass: OneVsRestClassifier
-using Nova.LinearModel: LogisticRegression
+using NovaML.MultiClass: OneVsRestClassifier
+using NovaML.LinearModel: LogisticRegression
 
-ovr = OneVsRestClassifier()
+lr = LogisticRegression()
+ovr = OneVsRestClassifier(lr)
 ovr(Xtrn_std, ytrn)
 ŷtrn = ovr(Xtrn_std)
 ŷtst = ovr(Xtst_std)
 
-using Nova.Metrics: accuracy_score
+using NovaML.Metrics: accuracy_score
 accuracy_score(ŷtrn, ytrn)
 accuracy_score(ŷtst, ytst)
 
+# weights of the first classifier in ovr
 ovr.classifiers[1].w
+# bias terms of all three classifiers in ovr
 [lr.b for lr in ovr.classifiers]
 
 colors = ["blue", "green", "red", "cyan", "magenta",
@@ -199,22 +187,24 @@ colors = ["blue", "green", "red", "cyan", "magenta",
 weights, params = [], []     
 
 for λ ∈ -5:5
-    ovr = OneVsRestClassifier(random_state=0, λ=10.0^λ)
+    lr = LogisticRegression(random_state=0, λ=10.0^λ)
+    ovr = OneVsRestClassifier(lr)
     ovr(Xtrn_std, ytrn)
     push!(weights, ovr.classifiers[2].w)
     push!(params, 10.0^λ)
 end
 
 using Plots
-plot()
-for i in 1:length(weights)
-    ys = [w[i] for w in weights]
-    plot!(params, ys, label=nms[i+1], xaxis=:log, color=colors[i])
+begin
+    plot(legend=:bottomright)
+    for i in 1:length(weights)
+        ys = [w[i] for w in weights]
+        plot!(params, ys, label=nms[i+1], xaxis=:log, color=colors[i])
+    end
+    plot!(legend=:bottomleft)    
 end
-plot!(legend=:bottomleft)
 
-
-using Nova.Ensemble: RandomForestClassifier
+using NovaML.Ensemble: RandomForestClassifier
 rf  = RandomForestClassifier(n_estimators=500, random_state=1)
 rf(Xtrn, ytrn)
 rf.feature_importances_
@@ -226,5 +216,5 @@ end
 nms = nms[2:end]
 importances = rf.feature_importances_
 
-bar(importances)
+bar(importances, xrotation=60)
 xticks!(collect(1:13), nms)

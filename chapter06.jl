@@ -1,29 +1,11 @@
-begin
-    using Revise
-    using HTTP, CSV, DataFrames
-    using Statistics, LinearAlgebra
-    
-    filelink = "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data";
-    
-    data = HTTP.get(filelink)
-    df = CSV.read(data.body, DataFrame, header=false)
-    
-    using NovaML.PreProcessing: LabelEncoder
-    X, y = df[:, 3:end] |> Matrix, df[:, 2]
-    le = LabelEncoder()
-    y = le(y)
-    le.classes
-    le.fitted
-    le(["M", "B"])
-    v = [1, 0, 0, 1, 1] 
-    le(v, :inverse_transform)
-    
-    using NovaML.ModelSelection: train_test_split
-    Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
-                                test_size=0.20,
-                                stratify=y,
-                                random_state=1)        
-end
+using Revise
+
+using NovaML.Datasets: load_breast_cancer
+X, y = load_breast_cancer(return_X_y=true)
+
+using NovaML.ModelSelection: train_test_split
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.2,
+                                          stratify=y, random_state=1)
 
 using NovaML.PreProcessing: StandardScaler
 using NovaML.Decomposition: PCA 
@@ -60,6 +42,8 @@ for (i, (trn, tst)) in enumerate(kfold(y))
 end
 
 scores
+
+using Statistics, LinearAlgebra
 mean_acc, std_acc = mean(scores), std(scores);
 println("CV accuracy: $mean_acc ± $std_acc")
 
@@ -176,7 +160,7 @@ Xtststd = scaler(Xtst)
 
 using NovaML.SVM: SVC
 svm = SVC(kernel=:rbf, C=1.0, gamma=:scale)
-svm(Xtrnstd, ytrn)
+svm(X, y)
 ŷ = svm(Xtststd)
 
 using NovaML.Metrics: accuracy_score
@@ -415,4 +399,3 @@ clf(Xtrn, ytrn)
 
 using NovaML.Metrics: roc_auc_score
 roc_auc_score(ytst, ŷprobs)
-

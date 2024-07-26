@@ -1,18 +1,12 @@
 using Revise
-using RDatasets, DataFrames, StatsBase, LinearAlgebra
+using DataFrames, StatsBase, LinearAlgebra
 using Random, Plots, StatsBase
 
 # Data
-iris = dataset("datasets", "iris")
-X = iris[:, 3:4] |> Matrix
-y = iris.Species
-map_species = Dict(
-    "setosa" => 0,
-    "versicolor" => 1,
-    "virginica" => 2
-)
-y = [map_species[k] for k in y]
-print("Class labels: ", unique(y))
+using NovaML.Datasets
+iris = load_iris()
+X = iris["data"][:, 3:4]
+y = iris["target"]
 
 using NovaML.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)
@@ -99,10 +93,10 @@ begin
          ylabel="L(w,b)")    
 end
 
-idx = (ytrn .== 0) .|| (ytrn .== 1)
-Xtrn01_subset = Xtrnstd[idx, :] |> Matrix
+idx = (ytrn .== 1) .|| (ytrn .== 2)
+Xtrn01_subset = Xtrnstd[idx, :]
 ytrn01_subset = ytrn[idx]
-ytrn01_subset = [x == 0 ? 0 : 1 for x in ytrn01_subset]
+ytrn01_subset = [x == 1 ? 0 : 1 for x in ytrn01_subset]
 
 using NovaML.LinearModel: LogisticRegression
 lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, solver=:batch)
@@ -137,18 +131,6 @@ begin
     xlabel!("λ")
     ylabel!("Weights")        
 end
-
-# Maximum margin classification with support vector machines
-iris = dataset("datasets", "iris")
-X = Matrix(iris[:, 1:4])
-y = iris.Species
-
-# NovaML.SVM.SVC currently supports only binary  classification
-#using NovaML.SVM: SVC
-#svm = SVC(kernel=:linear, C=1.0, gamma=:scale)
-#svm(Xtrnstd, ytrn)
-#ŷtst = svm(Xtst_std)
-
 
 # Decision Tree Learning
 entropy(p) = -p*log2(p) - (1-p)*log2(1-p)
@@ -188,7 +170,11 @@ tree(Xtrn, ytrn)
 ŷ = tree(Xtst)
 sum(ytst .!= ŷ)
 plot_decision_region(tree, Xcomb, ycomb)
+using NovaML.Metrics: accuracy_score, roc_auc_score
 accuracy_score(ŷ, ytst)
+ŷprobs = tree(Xtst, type=:probs)
+roc_auc_score(ytst, ŷprobs, multiclass=:ovo)
+
 
 # Random Forest Classifier
 using NovaML.Ensemble: RandomForestClassifier
@@ -196,6 +182,7 @@ forest = RandomForestClassifier(n_estimators=1000, random_state=1)
 forest(Xtrn, ytrn)
 ŷ = forest(Xtst)
 sum(ŷ .!= ytst)
+accuracy_score(ytst, ŷ)
 
 # K Nearest Neighbors
 using NovaML.Neighbors: KNeighborsClassifier
@@ -206,3 +193,5 @@ knn = KNeighborsClassifier(
 knn(Xtrn, ytrn)
 ŷ = knn(Xtst)
 sum(ŷ .!= ytst)
+accuracy_score(ytst, ŷ)
+knn(Xtst, type=:probs)

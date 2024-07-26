@@ -3,7 +3,6 @@
 ### Identifying missing values in tabular data 
 using Revise
 using CSV, DataFrames
-using NovaML.Impute: SimpleImputer
 
 csv_data = """
 A,B,C,D
@@ -52,6 +51,7 @@ drop_rows(df, 4)
 # only drop rows where missing appear in specific columns (here: :C)
 dropmissing(df, :C)
 
+using NovaML.Impute: SimpleImputer
 impute = SimpleImputer(
     strategy = :mean
 )
@@ -116,32 +116,10 @@ onehot = ohe(labels)
 ohe(onehot, :inverse_transform)
 
 # Partitioning a dataset into separate training and test datasets 
-using HTTP, Random
-
-filelink = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
-res = HTTP.get(filelink)
-wine = CSV.read(res.body, DataFrame, header=false)
-nms = [
-    "Class label"
-    "Alcohol"
- 	"Malic acid"
- 	"Ash"
-	"Alcalinity of ash"  
- 	"Magnesium"
-	"Total phenols"
- 	"Flavanoids"
- 	"Nonflavanoid phenols"
- 	"Proanthocyanins"
-	"Color intensity"
- 	"Hue"
- 	"OD280/OD315 of diluted wines"
- 	"Proline"
-]
-
-rename!(wine, nms)
-wine
-X, y = wine[:, 2:end], wine[:, 1]
-X = Matrix(X)
+using NovaML.Datasets
+data = load_wine()
+X, y = data["data"], data["target"]
+nms = data["feature_names"]
 
 using NovaML.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
@@ -199,7 +177,7 @@ begin
     plot(legend=:bottomright)
     for i in 1:length(weights)
         ys = [w[i] for w in weights]
-        plot!(params, ys, label=nms[i+1], xaxis=:log, color=colors[i])
+        plot!(params, ys, label=nms[i], xaxis=:log, color=colors[i])
     end
     plot!(legend=:bottomleft)    
 end
@@ -216,5 +194,5 @@ end
 nms = nms[2:end]
 importances = rf.feature_importances_
 
-bar(importances, xrotation=60)
-xticks!(collect(1:13), nms)
+bar(importances, xrotation=60,
+    xticks=(collect(1:13), nms))

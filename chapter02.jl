@@ -2,7 +2,7 @@ using Revise
 
 using NovaML.LinearModel: Perceptron, Adaline
 
-using LinearAlgebra, RDatasets, Plots
+using LinearAlgebra, Plots
 using DataFrames, Random, Statistics
 
 v1 = [1, 2, 3]
@@ -10,15 +10,18 @@ v2 = 0.5 .* v1
 acos( v1'*v2 / (norm(v1)*norm(v2)) )
 
 # Data
-iris = dataset("datasets", "iris")
-X = iris[1:100, [:SepalLength, :PetalLength]] |> Matrix
-y = (iris.Species[1:100] .== "setosa") .|> Int
+using NovaML.Datasets
+iris = load_iris()
+X = iris["data"][1:100, [1,3]]
+y = iris["target"][1:100] .== 1
+lbls = iris["target_names"][1:2]
 
 scatter(X[:, 1], X[:, 2],
-        group=iris[1:100, :Species],
+        group=y,
         xlabel="Sepal Length (cm)",
         ylabel="Petal Length (cm)",
-        title="Iris Dataset: Setosa vs. Versicolor")
+        title="Iris Dataset: Setosa vs. Versicolor",
+        labels = [lbls[1] lbls[2]])
 
 pn = Perceptron(η=0.1, num_iter=10, solver=:sgd)
 pn(X, y)
@@ -32,7 +35,7 @@ begin
     scatter!(1:length(pn.losses), pn.losses)
 end
 
-function plot_decision_region(model, X::Matrix, y::Vector, resolution::Float64=0.02)
+function plot_decision_region(model, X::Matrix, y::AbstractVector, resolution::Float64=0.02)
     x1min, x1max = minimum(X[:, 1]) - 1, maximum(X[:, 1]) + 1 
     x2min, x2max = minimum(X[:, 2]) - 1, maximum(X[:, 2]) + 1
 

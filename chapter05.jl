@@ -4,34 +4,12 @@
 using Revise
 using DataFrames, HTTP, Random, CSV
 
+using NovaML.Datasets
+wine = load_wine()
+X, y = wine["data"], wine["target"]
+nms = wine["feature_names"]
+
 using NovaML.ModelSelection: train_test_split
-
-filelink = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
-res = HTTP.get(filelink)
-wine = CSV.read(res.body, DataFrame, header=false)
-nms = [
-    "Class label"
-    "Alcohol"
- 	"Malic acid"
- 	"Ash"
-	"Alcalinity of ash"  
- 	"Magnesium"
-	"Total phenols"
- 	"Flavanoids"
- 	"Nonflavanoid phenols"
- 	"Proanthocyanins"
-	"Color intensity"
- 	"Hue"
- 	"OD280/OD315 of diluted wines"
- 	"Proline"
-]
-
-rename!(wine, nms)
-wine
-CSV.write("data/wine.csv", wine)
-X, y = wine[:, 2:end], wine[:, 1]
-X = Matrix(X)
-
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
 										  test_size=0.3, 
 										  random_state=0, 
@@ -122,6 +100,9 @@ ovr = OneVsRestClassifier(lr)
 ovr(Xtrnpca, ytrn)
 ŷtst = ovr(Xtstpca)
 sum(ytst .!= ŷtst)
+
+using NovaML.Metrics: accuracy_score
+accuracy_score(ytst, ŷtst)
 
 function plot_decision_regions(X, y, model, length=300)
 	colors = ["red", "blue", "lightgreen", "green", "cyan"]

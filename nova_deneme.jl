@@ -42,3 +42,4 @@ println("Test accuracy: $acc_tst")
 data = load_boston()
 
 X, y = load_boston(return_X_y=true)
+

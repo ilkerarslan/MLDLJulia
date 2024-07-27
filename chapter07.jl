@@ -4,6 +4,7 @@ function ensemble_error(n_classifier::Int, ϵ::Float64)
              for k ∈ k_start:n_classifier]
     return sum(probs) 
 end
+
 ensemble_error(11, 0.25)
 
 error_range = 0.0:0.01:1.0
@@ -36,7 +37,6 @@ w = [0.2, 0.2, 0.6]
 p = mean(ex, Weights(w), dims=1)
 argmax(vec(p))
 
-
 # Combining classifiers via majority vote
 using Revise
 using NovaML.Datasets
@@ -58,7 +58,7 @@ Xtrn, Xtst, ytrn, ytst = train_test_split(X, y,
                                           random_state=1,
                                           stratify=y)
 # Create base classifiers
-clf1 = LogisticRegression()
+clf1 = LogisticRegression(random_state=1)
 clf2 = DecisionTreeClassifier(max_depth=1, random_state=0)
 clf3 = KNeighborsClassifier(n_neighbors=1)
 
@@ -88,17 +88,108 @@ accuracy_score(ytst, ŷ)
 ŷprobs = vc(Xtst, type=:probs)
 roc_auc_score(ytst, ŷprobs)
 
-
-for (name, clf) in [("lr", pipe1), ("dt", clf2), ("knn", pipe3)]
-    clf(Xtrn, ytrn)
-    ŷ_individual = clf(Xtst)
-    acc = accuracy_score(ytst, ŷ_individual)
-    println("$name accuracy: $acc")
-    
-    if :probs in propertynames(clf)
-        ŷprobs_individual = clf(Xtst, type=:probs)
-        auc = roc_auc_score(ytst, ŷprobs_individual, multiclass=:ovr)
-        println("$name AUC: $auc")
-    end
-    println()
+begin
+    using Statistics
+    using NovaML.ModelSelection: cross_val_score
+    clf_labels = ["Logistic regression", "Decision tree", "KNN"]
+    println("10-fold cross validation")
+  
+    for (clf, label) ∈ zip([pipe1, clf2, pipe3], clf_labels)
+        scores = cross_val_score(
+            clf, Xtrn, ytrn,
+            cv=10,
+            scoring=roc_auc_score
+        )
+        println("ROC AUC: $(round(mean(scores), digits=2)) (±$(round(std(scores), digits=2))) [$label]")
+    end        
 end
+
+vc = VotingClassifier(
+    estimators=[("lr", pipe1), ("dt", clf2), ("knn", pipe3)],
+    voting=:soft
+)
+
+push!(clf_labels, "Majority voting")
+all_clf = [pipe1, clf2, pipe3, vc]
+for (clf, label) ∈ zip(all_clf, clf_labels)
+    scores = cross_val_score(
+        clf, Xtrn, ytrn, cv=10, 
+        scoring=roc_auc_score
+    )
+    mn, st = mean(scores), std(scores)
+    println("ROC AUC: $(round(mn,digits=2)) (±$(round(st, digits=2))) [$label]")
+end
+
+# Evaluating and tuning the the ensemble classifier
+using NovaML.Metrics: auc, roc_curve
+using Plots
+
+colors = [:black, :orange, :blue, :green]
+linestyles = [:solid, :dash, :dashdot, :dot, :dashdotdot]
+
+p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
+         title="Receiver Operating Characteristic (ROC) Curve",
+         legend=:bottomright);
+
+for (clf, label, clr, ls) ∈ zip(all_clf, clf_labels, colors, linestyles)
+    clf(Xtrn, ytrn)
+    ŷ = clf(Xtst, type=:probs)[:, 2]
+    fpr, tpr, _ = roc_curve(ytst, ŷ)
+    roc_auc = auc(fpr, tpr)
+    plot!(p, fpr, tpr, color=clr, linestyle=ls, label="$label (auc = $(round(roc_auc, digits=2)))")
+end
+
+plot!(p, [0, 1], [0, 1], color=:gray, linestyle=:dash, linewidth=2, label="Random");
+display(p)
+
+begin
+    # Standardize the features
+    sc = StandardScaler()
+    Xtrnstd = sc(Xtrn)
+    Xtststd = sc(Xtst)
+
+    # Set up the plot
+    len = 300
+    
+    p = plot(layout=(2,2), size=(800,600))
+
+    x1min, x1max = minimum(Xtrnstd[:, 1])-1, maximum(Xtrnstd[:, 1])+1
+    x2min, x2max = minimum(Xtrnstd[:, 2])-1, maximum(Xtrnstd[:, 2])+1
+    x1range = range(x1min, x1max, length=len)
+    x2range = range(x2min, x2max, length=len)
+
+    # Plot for each classifier
+    for (i, model, tt) in zip(1:4, all_clf, clf_labels)        
+        # Train the model
+        model(Xtrnstd, ytrn)
+
+        # Create the decision boundary
+        z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
+
+        # Plot
+        contourf!(p[i], x1range, x2range, z, 
+                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrnstd[ytrn.==0, 1], Xtrnstd[ytrn.==0, 2], 
+                 color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrnstd[ytrn.==1, 1], Xtrnstd[ytrn.==1, 2], 
+                 color=:green, marker=:circle, label="Class 1")
+        plot!(p[i], title=tt, legend=false)
+    end
+    # Display the plot
+    display(p)
+end
+
+using NovaML.ModelSelection: GridSearchCV
+params = [
+    [clf2, (:max_depth, [1, 2])],
+    [pipe1, (:λ, [0.01, 10., 1000.])]
+]
+
+grid = GridSearchCV(
+    estimator=vc,
+    param_grid=params,
+    cv=10,
+    scoring=roc_auc_score
+)
+
+grid(Xtrn, ytrn)

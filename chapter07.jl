@@ -24,16 +24,12 @@ w = [0.2, 0.2, 0.6]
 argmax(countmap(arr, w))
 
 using Statistics, StatsBase
-
-# Define the input array
 ex = [0.9 0.1;
       0.8 0.2;
       0.4 0.6]
 
-# Define weights
 w = [0.2, 0.2, 0.6]
 
-# Calculate weighted average
 p = mean(ex, Weights(w), dims=1)
 argmax(vec(p))
 

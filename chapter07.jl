@@ -39,46 +39,44 @@ argmax(vec(p))
 
 # Combining classifiers via majority vote
 using Revise
-using NovaML.Datasets
-using NovaML.Ensemble
-using NovaML.LinearModel
-using NovaML.Tree
-using NovaML.Neighbors
-using NovaML.PreProcessing
-using NovaML.ModelSelection
-using NovaML.Pipelines
 
 # Assume we have X_train, y_train, X_test, y_test
+using NovaML.Datasets: load_iris
 iris = load_iris()
 X = iris["data"][51:150, [2,3]] 
 y = (iris["target"][51:150] .== 2) .|> Int 
 
+using NovaML.ModelSelection: train_test_split
 Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
                                           test_size=0.5, 
                                           random_state=1,
                                           stratify=y)
 # Create base classifiers
+using NovaML.LinearModel
+using NovaML.Tree
+using NovaML.Neighbors
+
 clf1 = LogisticRegression(random_state=1)
 clf2 = DecisionTreeClassifier(max_depth=1, random_state=0)
 clf3 = KNeighborsClassifier(n_neighbors=1)
 
 # Create StandardScaler
+using NovaML.PreProcessing
 sc = StandardScaler()
 
 # Create pipelines
+using NovaML.Pipelines: pipe
 pipe1 = pipe(sc, clf1)
 pipe3 = pipe(sc, clf3)
 
 # Create VotingClassifier
+using NovaML.Ensemble
 vc = VotingClassifier(
     estimators=[("lr", pipe1), ("dt", clf2), ("knn", pipe3)],
     voting=:soft
 )
 
-# Fit the VotingClassifier
 vc(Xtrn, ytrn)
-
-# Make predictions
 ŷ = vc(Xtst)
 
 using NovaML.Metrics: accuracy_score, roc_auc_score
@@ -142,8 +140,7 @@ end
 plot!(p, [0, 1], [0, 1], color=:gray, linestyle=:dash, linewidth=2, label="Random");
 display(p)
 
-begin
-    # Standardize the features
+begin    
     sc = StandardScaler()
     Xtrnstd = sc(Xtrn)
     Xtststd = sc(Xtst)
@@ -179,17 +176,87 @@ begin
     display(p)
 end
 
-using NovaML.ModelSelection: GridSearchCV
-params = [
-    [clf2, (:max_depth, [1, 2])],
-    [pipe1, (:λ, [0.01, 10., 1000.])]
-]
+# Bagging Classifier
+using NovaML.Datasets
+wine = load_wine()
+X, y = wine["data"], wine["target"]
+X = X[:, [1, end-1]]
+idx = y .!= 1
+X, y = X[idx, :], y[idx]
 
-grid = GridSearchCV(
-    estimator=vc,
-    param_grid=params,
-    cv=10,
-    scoring=roc_auc_score
+using NovaML.PreProcessing: LabelEncoder
+le = LabelEncoder()
+y = le(y)
+
+using NovaML.ModelSelection: train_test_split
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.2,      random_state=1, stratify=y)
+
+using NovaML.Tree: DecisionTreeClassifier
+using NovaML.Ensemble: BaggingClassifier
+tree = DecisionTreeClassifier(random_state=1)
+bag = BaggingClassifier(
+    base_estimator=tree,
+    n_estimators=1000,
+    max_samples=1.0,
+    max_features=1.0,
+    bootstrap=true,
+    bootstrap_features=false,
+    random_state=1
 )
 
-grid(Xtrn, ytrn)
+tree(Xtrn, ytrn)
+ŷtrn = tree(Xtrn)
+ŷtst = tree(Xtst)
+acctrn = accuracy_score(ytrn, ŷtrn)
+acctst = accuracy_score(ytst, ŷtst)
+
+println("Decision tree accuracies:
+Training set: $acctrn
+testing set : $acctst")
+
+bag(Xtrn, ytrn)
+ŷtrn = bag(Xtrn)
+ŷtst = bag(Xtst)
+acctrn = accuracy_score(ytrn, ŷtrn)
+acctst = accuracy_score(ytst, ŷtst)
+
+println("Decision tree accuracies:
+Training set: $acctrn
+testing set : $acctst")
+
+using Plots
+begin    
+    len = 300    
+    p = plot(layout=(1,2), size=(800,600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
+
+    x1min, x1max = minimum(Xtrn[:, 1])-1, maximum(Xtrn[:, 1])+1
+    x2min, x2max = minimum(Xtrn[:, 2])-1, maximum(Xtrn[:, 2])+1
+    x1range = range(x1min, x1max, length=len)
+    x2range = range(x2min, x2max, length=len)
+
+    # Plot for each classifier
+    for (i, model, tt) in zip(1:2, [tree, bag], ["Decision tree", "Bagging"])        
+        # Train the model
+        model(Xtrn, ytrn)
+
+        # Create the decision boundary
+        z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
+
+        # Plot
+        contourf!(p[i], x1range, x2range, z, 
+                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2], 
+                 color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2], 
+                 color=:green, marker=:circle, label="Class 1")
+        plot!(p[i], title=tt, legend=false)
+    end
+    # Display the plot
+    display(p)
+end
+
+ŷ = clf(Xtst, type=:probs)[:, 2]
+fpr, tpr, _ = roc_curve(ytst, ŷ)
+roc_auc = auc(fpr, tpr)
+plot!(p, fpr, tpr, color=clr, linestyle=ls, label="$label (auc = $(round(roc_auc, digits=2)))")
+

@@ -173,6 +173,7 @@ using NovaML.ModelSelection: GridSearchCV
 using NovaML.SVM: SVC
 using NovaML.PreProcessing: StandardScaler
 using NovaML.Pipelines: pipe
+using NovaML.Metrics: accuracy_score
 
 scaler = StandardScaler()
 svc = SVC()
@@ -396,6 +397,3 @@ clf = pipe(StandardScaler(),
 
 clf(Xtrn, ytrn)
 ŷprobs = clf(Xtst, type=:probs)
-
-using NovaML.Metrics: roc_auc_score
-roc_auc_score(ytst, ŷprobs)

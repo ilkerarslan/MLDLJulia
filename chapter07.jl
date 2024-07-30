@@ -47,6 +47,8 @@ Xtrn, Xtst, ytrn, ytst = train_test_split(X, y,
                                           test_size=0.5, 
                                           random_state=1,
                                           stratify=y)
+
+
 # Create base classifiers
 using NovaML.LinearModel
 using NovaML.Tree
@@ -69,8 +71,7 @@ pipe3 = pipe(sc, clf3)
 using NovaML.Ensemble
 vc = VotingClassifier(
     estimators=[("lr", pipe1), ("dt", clf2), ("knn", pipe3)],
-    voting=:soft
-)
+    voting=:soft)
 
 vc(Xtrn, ytrn)
 ŷ = vc(Xtst)
@@ -191,7 +192,6 @@ using NovaML.Tree: DecisionTreeClassifier
 using NovaML.Ensemble: BaggingClassifier
 tree = DecisionTreeClassifier(random_state=1)
 bag = BaggingClassifier(
-    base_estimator=tree,
     n_estimators=1000,
     max_samples=1.0,
     max_features=1.0,
@@ -247,12 +247,108 @@ begin
                  color=:green, marker=:circle, label="Class 1")
         plot!(p[i], title=tt, legend=false)
     end
-    # Display the plot
     display(p)
 end
 
-ŷ = clf(Xtst, type=:probs)[:, 2]
+ŷ = tree(Xtst, type=:probs)[:,2]
+
+using NovaML.Metrics: auc, roc_curve
 fpr, tpr, _ = roc_curve(ytst, ŷ)
 roc_auc = auc(fpr, tpr)
-plot!(p, fpr, tpr, color=clr, linestyle=ls, label="$label (auc = $(round(roc_auc, digits=2)))")
 
+ŷ = bag(Xtst, type=:probs)[:, 2]
+fpr, tpr, _ = roc_curve(ytst, ŷ)
+roc_auc = auc(fpr, tpr)
+
+begin
+    colors = [:black, :orange, :blue, :green]
+    linestyles = [:solid, :dash, :dashdot, :dot, :dashdotdot]
+    
+    p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
+             title="Receiver Operating Characteristic (ROC) Curve",
+             legend=:bottomright);
+    models = [tree, bag]
+    linestyles = [:solid, :dash]
+    labels=[:tree, :bag]
+    p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
+             title="Receiver Operating characteristic (ROC) Curve",
+             legend=:bottomright)
+    for (clf, lbl, ls) ∈ zip(models, labels, linestyles) 
+        clf(Xtrn, ytrn)
+        ŷ = clf(Xtst, type=:probs)[:,2]
+        fpr, tpr, _ = roc_curve(ytst, ŷ)
+        roc_auc = auc(fpr, tpr)
+        plot!(p, fpr, tpr, linestyle=ls, label="$lbl (AUC:$(round(roc_auc, digits=2)))")
+    end
+    plot!([0, 1], [0, 1], color=:black, linewidth=2, linestyle=:dash, label=nothing)
+    display(p)
+end
+
+# Adaptive Boosting
+using Statistics
+y = Int[1, 1, 1, -1, -1, -1, 1, 1, 1, -1]
+ŷ = Int[1, 1, 1, -1, -1, -1, -1, -1, -1, -1]
+correct = (y.==ŷ)
+weights = fill(0.1, 10)
+ε = mean(.!correct)
+αⱼ = 0.5 * log((1-ε)/ε)
+w_correct = 0.1 * exp(-αⱼ*1*1)
+w_wrong = 01 * exp(-αⱼ*-1*1)
+weights = ifelse.(correct.==1, w_correct, w_wrong)
+weights ./= sum(weights)
+
+using NovaML.Tree: DecisionTreeClassifier
+using NovaML.Ensemble: AdaBoostClassifier
+using NovaML.Metrics: accuracy_score
+
+tree = DecisionTreeClassifier(
+    random_state=1,
+    max_depth=1)
+
+tree(Xtrn, ytrn)
+ŷtrn = tree(Xtrn)
+ŷtst = tree(Xtst)
+treetrn = accuracy_score(ytrn, ŷtrn)
+treetst = accuracy_score(ytst, ŷtst)
+
+using NovaML.Ensemble: AdaBoostClassifier
+ada = AdaBoostClassifier(
+    base_estimator=DecisionTreeClassifier(),
+    n_estimators=500,
+    learning_rate=0.1,
+    random_state=1
+)
+ada(Xtrn, ytrn)
+ŷtrn = ada(Xtrn)
+ŷtst = ada(Xtst)
+accuracy_score(ytrn, ŷtrn)
+accuracy_score(ytst, ŷtst)
+
+begin    
+    len = 300    
+    p = plot(layout=(1,2), size=(800,600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
+
+    x1min, x1max = minimum(Xtrn[:, 1])-1, maximum(Xtrn[:, 1])+1
+    x2min, x2max = minimum(Xtrn[:, 2])-1, maximum(Xtrn[:, 2])+1
+    x1range = range(x1min, x1max, length=len)
+    x2range = range(x2min, x2max, length=len)
+
+    # Plot for each classifier
+    for (i, model, tt) in zip(1:2, [tree, ada], ["Decision tree", "AdaBoost"])        
+        # Train the model
+        model(Xtrn, ytrn)
+
+        # Create the decision boundary
+        z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
+
+        # Plot
+        contourf!(p[i], x1range, x2range, z, 
+                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2], 
+                 color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2], 
+                 color=:green, marker=:circle, label="Class 1")
+        plot!(p[i], title=tt, legend=false)
+    end
+    display(p)
+end

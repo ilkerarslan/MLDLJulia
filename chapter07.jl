@@ -376,6 +376,14 @@ gbc(Xtrn, ytrn)
 ŷtrn = gbc(Xtrn)
 ŷtst = gbc(Xtst)
 
-using NovaML.Metrics: accuracy_score
+using NovaML.Metrics: accuracy_score, auc, roc_curve
 accuracy_score(ytrn, ŷtrn)
 accuracy_score(ytst, ŷtst)
+
+ŷtrn = gbc(Xtrn, type=:probs)
+fpr, tpr, _ = roc_curve(ytrn, ŷtrn)
+roc_auc = auc(fpr, tpr)
+
+ŷtst = gbc(Xtst, type=:probs)
+fpr, tpr, _ = roc_curve(ytst, ŷtst)
+roc_auc = auc(fpr, tpr)

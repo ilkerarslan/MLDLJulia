@@ -186,7 +186,7 @@ le = LabelEncoder()
 y = le(y)
 
 using NovaML.ModelSelection: train_test_split
-Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.2,      random_state=1, stratify=y)
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.2, random_state=1, stratify=y)
 
 using NovaML.Tree: DecisionTreeClassifier
 using NovaML.Ensemble: BaggingClassifier
@@ -197,8 +197,7 @@ bag = BaggingClassifier(
     max_features=1.0,
     bootstrap=true,
     bootstrap_features=false,
-    random_state=1
-)
+    random_state=1)
 
 tree(Xtrn, ytrn)
 ŷtrn = tree(Xtrn)
@@ -250,7 +249,7 @@ begin
     display(p)
 end
 
-ŷ = tree(Xtst, type=:probs)[:,2]
+ŷ = tree(Xtst, type=:probs)[:, 2]
 
 using NovaML.Metrics: auc, roc_curve
 fpr, tpr, _ = roc_curve(ytst, ŷ)
@@ -324,7 +323,7 @@ ŷtst = ada(Xtst)
 accuracy_score(ytrn, ŷtrn)
 accuracy_score(ytst, ŷtst)
 
-begin    
+begin
     len = 300    
     p = plot(layout=(1,2), size=(800,600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
 
@@ -352,3 +351,31 @@ begin
     end
     display(p)
 end
+
+# DecisionTreeRegression
+using NovaML.Datasets
+boston = load_boston()
+X, y = boston["data"], boston["target"]
+using NovaML.Tree
+tree = DecisionTreeRegressor()
+tree(X, y)
+ŷ = tree(X)
+using NovaML.Metrics: r2_score, adj_r2_score, mse
+r2_score(y, ŷ)
+adj_r2_score(y, ŷ, n_features=size(X, 2))
+mse(y, ŷ)
+
+# Gradient Boosting
+using NovaML.Ensemble: GradientBoostingClassifier
+gbc = GradientBoostingClassifier(
+        n_estimators=1000,
+        learning_rate=0.01,
+        max_depth=4,
+        random_state=1)
+gbc(Xtrn, ytrn)
+ŷtrn = gbc(Xtrn)
+ŷtst = gbc(Xtst)
+
+using NovaML.Metrics: accuracy_score
+accuracy_score(ytrn, ŷtrn)
+accuracy_score(ytst, ŷtst)

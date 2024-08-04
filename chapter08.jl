@@ -6,11 +6,9 @@ using Random
 # Combine all files in a single dataframe
 using ProgressMeter
 basepath = "aclImdb"
-
 labels = Dict("pos" => 1, "neg" => 0)
 p = Progress(50000, desc="Processing files: ", barglyphs=BarGlyphs("[=> ]"))
 df = DataFrame(review = String[], sentiment = Int[])
-
 for s in ["test", "train"]
     for l in ["pos", "neg"]
         path = joinpath(basepath, s, l)
@@ -23,11 +21,8 @@ for s in ["test", "train"]
         end
     end
 end
-
 df
-
 CSV.write("data/movie_reviews.csv", df)
-
 Random.seed!(0)
 idx = shuffle(1:nrow(df));
 df = df[idx, :]

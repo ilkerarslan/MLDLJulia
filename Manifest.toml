@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "578839b8632592aa34404d06ee1f99d622821181"
+project_hash = "6d983dc95b8329cf2e64933436b57e5e9a23835e"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -760,7 +760,7 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
 
 [[deps.NovaML]]
-deps = ["CSV", "DataFrames", "DataStructures", "Distances", "Distributions", "Downloads", "LinearAlgebra", "Optim", "ProgressBars", "Random", "SparseArrays", "Statistics", "StatsBase", "Unicode"]
+deps = ["CSV", "DataFrames", "DataStructures", "Distances", "Distributions", "Downloads", "LinearAlgebra", "Optim", "ProgressBars", "Random", "SparseArrays", "Statistics", "StatsBase"]
 path = "C:\\Users\\ilker.arslan\\.julia\\dev\\NovaML.jl"
 uuid = "3f482e55-661e-4eec-8a53-436578a72954"
 version = "0.2.6"

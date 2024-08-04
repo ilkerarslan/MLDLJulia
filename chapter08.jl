@@ -1,10 +1,10 @@
-using ProgressMeter
 using DataFrames
 using CSV
 using Random
 
 #=
 # Combine all files in a single dataframe
+using ProgressMeter
 basepath = "aclImdb"
 
 labels = Dict("pos" => 1, "neg" => 0)
@@ -37,8 +37,12 @@ CSV.write("data/movie_data.csv", df)
 df = CSV.read("data/movie_data.csv", DataFrame)
 
 using NovaML.FeatureExtraction
-count = CountVectorizer()
-docs = ["The sun is shining", "The weather is sweet", "The sun is shining, the weather is sweet, and one and one is two"]
-bag = count(docs)
+docs = ["The sun is shining", 
+        "The weather is sweet", 
+        "The sun is shining, the weather is sweet, and one and one is two"]
 
-count.vocabulary
+countvec = CountVectorizer()
+bag = countvec(docs)
+countvec.vocabulary
+countvec(bag, type=:inverse_transform)
+

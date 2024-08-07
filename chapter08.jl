@@ -29,8 +29,6 @@ df = df[idx, :]
 CSV.write("data/movie_data.csv", df)
 =#
 
-df = CSV.read("data/movie_data.csv", DataFrame)
-
 using NovaML.FeatureExtraction
 docs = ["The sun is shining", 
         "The weather is sweet", 
@@ -40,4 +38,48 @@ countvec = CountVectorizer()
 bag = countvec(docs)
 countvec.vocabulary
 countvec(bag, type=:inverse_transform)
+
+tf = bag
+df = [1, 3, 1, 2, 2, 2, 3, 1, 2]
+idf = log.(4 ./ (1 .+ df))
+idf = idf .+ 1
+tfidf = tf .* idf'
+
+row_norms = sqrt.(sum(tfidf.^2, dims=2))
+tfidf = tfidf ./ max.(row_norms, eps())
+
+df = CSV.read("data/movie_data.csv", DataFrame)
+text = df[2, :review]
+
+using Unicode
+
+function preprocessor(text::String)
+    # Remove HTML tags
+    text = replace(text, r"<[^>]*>" => "")
+    
+    # Find emoticons
+    emoticons = [m.match for m in eachmatch(r"(?::|;|=)(?:-)?(?:\)|\(|D|P)", text)]
+    
+    # Convert to lowercase, remove non-word characters, and add emoticons back
+    text = lowercase(text)
+    text = replace(text, r"[\W]+" => " ")
+    text *= " " * join(replace.(emoticons, "-" => ""), " ")
+    
+    # Normalize unicode characters and strip leading/trailing whitespace
+    return strip(Unicode.normalize(text, stripmark=true))
+end
+
+# Test the function
+processed_text = preprocessor(text)
+println("Original text: ", text)
+println("Processed text: ", processed_text)
+preprocessor("</a>This :) is :( a test :-)!")
+
+df.review = preprocessor.(df.review)
+df
+
+function tokenizer(text)
+    return split(text)
+end
+tokenizer("runners like running and thus they run")
 

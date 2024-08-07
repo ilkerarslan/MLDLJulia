@@ -34,19 +34,20 @@ end
 df[!, :E] = [missing, missing, missing]
 df = remove_all_missing_cols(df)
 
+
 """drop_rows
 Drop rows with less than n nonmissing values
 """
 function drop_rows(df, n=4)
-    rows = Int[]
-    for i in 1:size(df, 1)
-        r = collect(df[i, :]) .|> !ismissing |> sum
+    rows=Int[]
+    for i ∈ axes(df, 1)
+        r = sum(!ismissing, df[i, :])
         if r ≥ n push!(rows, i) end
     end
     return df[rows, :]
 end
 
-drop_rows(df, 4)
+drop_rows(df)
 
 # only drop rows where missing appear in specific columns (here: :C)
 dropmissing(df, :C)

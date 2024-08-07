@@ -296,7 +296,6 @@ w_wrong = 01 * exp(-αⱼ*-1*1)
 weights = ifelse.(correct.==1, w_correct, w_wrong)
 weights ./= sum(weights)
 
-using NovaML.Tree: DecisionTreeClassifier
 using NovaML.Ensemble: AdaBoostClassifier
 using NovaML.Metrics: accuracy_score
 
@@ -310,7 +309,6 @@ ŷtst = tree(Xtst)
 treetrn = accuracy_score(ytrn, ŷtrn)
 treetst = accuracy_score(ytst, ŷtst)
 
-using NovaML.Ensemble: AdaBoostClassifier
 ada = AdaBoostClassifier(
     base_estimator=DecisionTreeClassifier(),
     n_estimators=500,

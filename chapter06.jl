@@ -170,9 +170,7 @@ accuracy_score(ŷtrn, ytrn)
 
 # GridSearchCV
 using NovaML.ModelSelection: GridSearchCV
-using NovaML.SVM: SVC
-using NovaML.PreProcessing: StandardScaler
-using NovaML.Pipelines: pipe
+
 using NovaML.Metrics: accuracy_score
 
 scaler = StandardScaler()
@@ -286,11 +284,6 @@ f1_score(ytst, ŷ)
 matthews_corrcoef(ytst, ŷ)
 
 ####################################################
-using NovaML.LinearModel: LogisticRegression
-using NovaML.PreProcessing: StandardScaler
-using NovaML.Decomposition: PCA
-using NovaML.Pipelines: pipe
-using NovaML.ModelSelection: StratifiedKFold
 using NovaML.Metrics: roc_curve, auc
 using Statistics: mean, std
 using Plots
@@ -386,10 +379,6 @@ println("Number of class 1 examples after: ", sum(y_balanced .== 1))
 println("Number of class 0 examples after: ", sum(y_balanced .== 0))
 
 ##############################################################
-using NovaML.LinearModel: LogisticRegression
-using NovaML.PreProcessing: StandardScaler
-using NovaML.Decomposition: PCA
-using NovaML.Pipelines: pipe
 
 clf = pipe(StandardScaler(), 
            PCA(n_components=2),

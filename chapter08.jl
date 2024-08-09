@@ -1,5 +1,4 @@
-using DataFrames
-using CSV
+using CSV, DataFrames
 using Random
 
 #=
@@ -32,7 +31,7 @@ CSV.write("data/movie_data.csv", df)
 using NovaML.FeatureExtraction
 docs = ["The sun is shining", 
         "The weather is sweet", 
-        "The sun is shining, the weather is sweet, and one and one is two"]
+        "The sun is shining, the weather is sweet, and one and one is two"];
 
 countvec = CountVectorizer()
 bag = countvec(docs)
@@ -44,7 +43,6 @@ df = [1, 3, 1, 2, 2, 2, 3, 1, 2]
 idf = log.(4 ./ (1 .+ df))
 idf = idf .+ 1
 tfidf = tf .* idf'
-
 row_norms = sqrt.(sum(tfidf.^2, dims=2))
 tfidf = tfidf ./ max.(row_norms, eps())
 
@@ -75,7 +73,7 @@ println("Original text: ", text)
 println("Processed text: ", processed_text)
 preprocessor("</a>This :) is :( a test :-)!")
 
-df.review = preprocessor.(df.review)
+df.review = preprocessor.(df.review);
 df
 
 function tokenizer(text)
@@ -83,3 +81,29 @@ function tokenizer(text)
 end
 tokenizer("runners like running and thus they run")
 
+using Snowball
+stemmer = Stemmer("english")
+stem(stemmer, "running")
+
+using Languages, WordTokenizers
+stop_words = stopwords(Languages.English())
+text = "runners like running and thus they run"
+tokens = tokenize(text)
+[w for w in tokenize(text) if w ∉ stop_words]
+
+#Training a logistic regression model for document classification
+Xtrn, Xtst = df[1:25000, :review], df[25001:end, :review];
+ytrn, ytst = df[1:25000, :sentiment], df[25001:end, :sentiment]
+
+using NovaML.ModelSelection: GridSearchCV
+using NovaML.Pipelines: pipe
+using NovaML.LinearModel: LogisticRegression
+
+using NovaML.FeatureExtraction
+tfidf = TfidfVectorizer()
+docs = ["The sun is shining", 
+        "The weather is sweet", 
+        "The sun is shining, the weather is sweet, and one and one is two"]
+
+result = tfidf(docs)
+tfidf.vocabulary

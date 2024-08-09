@@ -34,7 +34,6 @@ end
 df[!, :E] = [missing, missing, missing]
 df = remove_all_missing_cols(df)
 
-
 """drop_rows
 Drop rows with less than n nonmissing values
 """

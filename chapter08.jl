@@ -95,50 +95,24 @@ tokens = tokenize(text)
 Xtrn, Xtst = df[1:25000, :review], df[25001:end, :review];
 ytrn, ytst = df[1:25000, :sentiment], df[25001:end, :sentiment]
 
-using NovaML.ModelSelection: GridSearchCV
-using NovaML.Pipelines: pipe
-using NovaML.LinearModel: LogisticRegression
-
 using NovaML.FeatureExtraction
 tfidf = TfidfVectorizer()
 docs = ["The sun is shining", 
         "The weather is sweet", 
         "The sun is shining, the weather is sweet, and one and one is two"]
-
 result = tfidf(docs)
 tfidf.vocabulary
 tfidf(result, type=:inverse_transform)
-new_docs = ["this is some new document"]
+new_docs = ["this is some new document weather and and"]
 Xnew = tfidf(new_docs)
 tfidf.fitted
 
 using NovaML.ModelSelection
-using NovaML.Pipelines
 using NovaML.LinearModel
 using NovaML.FeatureExtraction
 
 vect = TfidfVectorizer(lowercase=false)
-clf = LogisticRegression(solver=:liblinear)
-
-small_param_grid = [
-        [clf, (:λ, [1.0, 0.1])],
-        [vect, (:stop_words, vcat(stop_words, nothing))]
-]
-
-lr_tfidf = pipe(vect, clf)
-
-gs_lr_tfidf = GridSearchCV(
-    estimator = lr_tfidf,
-    param_grid = small_param_grid,
-    scoring=accuracy_score,
-    cv=5
-)
-
-gs_lr_tfidf(Xtrn, ytrn)  # doesn't work
-
-
-vect = TfidfVectorizer(lowercase=false)
 clf = LogisticRegression(solver=:liblinear, λ=0.01)
 
-lr_tfidf = pipe(vect, clf)
-lr_tfidf(Xtrn, ytrn)
+Xtrnnew = vect(Xtrn)
+Xtstnew = vect(Xtst)

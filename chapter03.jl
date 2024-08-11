@@ -99,7 +99,7 @@ ytrn01_subset = ytrn[idx]
 ytrn01_subset = [x == 1 ? 0 : 1 for x in ytrn01_subset]
 
 using NovaML.LinearModel: LogisticRegression
-lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1, solver=:batch)
+lrgd = LogisticRegression(η=0.01, num_iter=2000, random_state=1,    solver=:batch)
 lrgd(Xtrn01_subset, ytrn01_subset)
 plot_decision_region(lrgd, Xtrn01_subset, ytrn01_subset)
 

@@ -33,8 +33,8 @@ docs = ["The sun is shining",
         "The weather is sweet", 
         "The sun is shining, the weather is sweet, and one and one is two"];
 
-countvec = CountVectorizer()
-bag = countvec(docs)
+countvec = CountVectorizer();
+bag = countvec(docs);
 countvec.vocabulary
 countvec(bag, type=:inverse_transform)
 
@@ -107,3 +107,38 @@ docs = ["The sun is shining",
 
 result = tfidf(docs)
 tfidf.vocabulary
+tfidf(result, type=:inverse_transform)
+new_docs = ["this is some new document"]
+Xnew = tfidf(new_docs)
+tfidf.fitted
+
+using NovaML.ModelSelection
+using NovaML.Pipelines
+using NovaML.LinearModel
+using NovaML.FeatureExtraction
+
+vect = TfidfVectorizer(lowercase=false)
+clf = LogisticRegression(solver=:liblinear)
+
+small_param_grid = [
+        [clf, (:λ, [1.0, 0.1])],
+        [vect, (:stop_words, vcat(stop_words, nothing))]
+]
+
+lr_tfidf = pipe(vect, clf)
+
+gs_lr_tfidf = GridSearchCV(
+    estimator = lr_tfidf,
+    param_grid = small_param_grid,
+    scoring=accuracy_score,
+    cv=5
+)
+
+gs_lr_tfidf(Xtrn, ytrn)  # doesn't work
+
+
+vect = TfidfVectorizer(lowercase=false)
+clf = LogisticRegression(solver=:liblinear, λ=0.01)
+
+lr_tfidf = pipe(vect, clf)
+lr_tfidf(Xtrn, ytrn)

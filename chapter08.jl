@@ -1,6 +1,3 @@
-using CSV, DataFrames
-using Random
-
 #=
 # Combine all files in a single dataframe
 using ProgressMeter
@@ -37,7 +34,6 @@ countvec = CountVectorizer();
 bag = countvec(docs);
 countvec.vocabulary
 countvec(bag, type=:inverse_transform)
-
 tf = bag
 df = [1, 3, 1, 2, 2, 2, 3, 1, 2]
 idf = log.(4 ./ (1 .+ df))
@@ -46,11 +42,7 @@ tfidf = tf .* idf'
 row_norms = sqrt.(sum(tfidf.^2, dims=2))
 tfidf = tfidf ./ max.(row_norms, eps())
 
-df = CSV.read("data/movie_data.csv", DataFrame)
-text = df[2, :review]
-
 using Unicode
-
 function preprocessor(text::String)
     # Remove HTML tags
     text = replace(text, r"<[^>]*>" => "")
@@ -66,6 +58,10 @@ function preprocessor(text::String)
     # Normalize unicode characters and strip leading/trailing whitespace
     return strip(Unicode.normalize(text, stripmark=true))
 end
+
+using CSV, DataFrames
+df = CSV.read("data/movie_data.csv", DataFrame)
+text = df[2, :review]
 
 # Test the function
 processed_text = preprocessor(text)
@@ -91,10 +87,6 @@ text = "runners like running and thus they run"
 tokens = tokenize(text)
 [w for w in tokenize(text) if w ∉ stop_words]
 
-#Training a logistic regression model for document classification
-Xtrn, Xtst = df[1:25000, :review], df[25001:end, :review];
-ytrn, ytst = df[1:25000, :sentiment], df[25001:end, :sentiment]
-
 using NovaML.FeatureExtraction
 tfidf = TfidfVectorizer()
 docs = ["The sun is shining", 
@@ -107,12 +99,40 @@ new_docs = ["this is some new document weather and and"]
 Xnew = tfidf(new_docs)
 tfidf.fitted
 
-using NovaML.ModelSelection
-using NovaML.LinearModel
+# Assuming df is your DataFrame with 'review' and 'sentiment' columns
+Xtrn, Xtst = df[1:10000, :review], df[40001:50000, :review];
+ytrn, ytst = df[1:10000, :sentiment], df[40001:50000, :sentiment];
+
 using NovaML.FeatureExtraction
+using NovaML.LinearModel
 
-vect = TfidfVectorizer(lowercase=false)
-clf = LogisticRegression(solver=:liblinear, λ=0.01)
+# Create and apply TfidfVectorizer
+vect = TfidfVectorizer(lowercase=true, stop_words=stop_words)
+@time Xtrnnew = vect(Xtrn);
+Xtstnew = vect(Xtst);
 
-Xtrnnew = vect(Xtrn)
-Xtstnew = vect(Xtst)
+# Train LogisticRegression
+clf = LogisticRegression(solver=:lbfgs)
+@time clf(Xtrnnew, ytrn);
+@time ŷtst = clf(Xtstnew);
+
+using NovaML.Metrics
+accuracy_score(ytst, ŷtst)
+
+count = CountVectorizer(
+            stop_words=stop_words,
+            max_df=0.1,
+            max_features=5000)
+
+@time X = count(df.review[1:1000])
+
+using NovaML.Decomposition
+lda = LatentDirichletAllocation(
+        n_components=10,
+        random_state=123,
+        learning_method=:batch)
+
+@time Xtopics = lda(X)
+lda.components_
+n_top_words = 5
+count

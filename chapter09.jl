@@ -133,3 +133,13 @@ begin
     # Display the plot
     display(p)    
 end
+
+println("Slope: $(ransac.estimator_.w[1])")
+println("Intercept: $(ransac.estimator_.b)")
+
+function mean_absolute_deviation(data)
+    return mean(abs.(data .- mean(data)))
+end
+
+mean_absolute_deviation(y)
+

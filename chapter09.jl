@@ -94,7 +94,7 @@ begin
     ylabel!("Sale price in US dollars")
 end
 
-ransac = RANSACRegressor(
+ransac = RANSACRegression(
     estimator = LinearRegression(),
     max_trials = 100,
     min_samples = 0.95,

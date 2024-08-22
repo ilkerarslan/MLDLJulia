@@ -105,7 +105,7 @@ ransac = RANSACRegression(
     random_state=123    
 )
 
-X = reshape(X, length(X), 1)
+X = reshape(X, :, 1)
 ransac(X, y)
 
 begin
@@ -209,6 +209,7 @@ X, y = load_boston(return_X_y=true)
 lr = LinearRegression()
 lasso = Lasso(α=1.)
 ridge = Ridge(α=100.)
+enet = ElasticNet(α=1.0, l1_ratio=0.5)
 
 lr(X, y)
 ŷlr = lr(X);
@@ -216,15 +217,59 @@ lasso(X, y)
 ŷlasso = lasso(X);
 ridge(X, y)
 ŷridge = ridge(X);
+enet(X, y)
+ŷenet = enet(X);
 
 r2_score(y, ŷlr)
 r2_score(y, ŷlasso)
 r2_score(y, ŷridge)
+r2_score(y, ŷenet)
 
 lr.b, lr.w
 lasso.b, lasso.w
 ridge.b, ridge.w
+enet.b, enet.w
 
-plot(1:size(X, 2), lr.w, label="linreg")
-plot!(1:size(X, 2), lasso.w, label="lasso")
-plot!(1:size(X, 2), ridge.w, label="ridge")
+begin
+    plot(1:size(X, 2), lr.w, label="LinReg")
+    plot!(1:size(X, 2), lasso.w, label="Lasso")
+    plot!(1:size(X, 2), ridge.w, label="Ridge")    
+    plot!(1:size(X, 2), enet.w, label="ElasticNet")
+end
+
+using NovaML.PreProcessing
+X = [ 258.0 270.0 294.0 320.0 342.0 368.0 396.0 446.0 480.0 586.0]'
+y = [ 236.4, 234.4, 252.8, 298.6, 314.2, 342.2, 360.8, 368.0, 391.2, 390.8]
+
+lr = LinearRegression()
+pr = LinearRegression()
+
+quadratic = PolynomialFeatures(degree=2)
+Xquad = quadratic(X)
+
+lr(X, y)
+Xfit = 250:10:600
+Xfit = reshape(Xfit, :, 1)
+ŷlin = lr(Xfit)
+
+pr(Xquad, y)
+ŷquad = pr(quadratic(Xfit)) 
+
+
+begin
+    scatter(X, y, label="Training points")
+    plot!(Xfit, ŷlin, label="Linear fit", linestyle=:dash)
+    plot!(Xfit, ŷquad, label="Quadratic fit")
+    xlabel!("Explanatory variable")
+    ylabel!("Predicted or known target values")
+    plot!(size=(600, 400), margin=5Plots.mm)
+end
+
+ŷlin = lr(X)
+ŷquad = pr(Xquad)
+mselin = mse(y, ŷlin)
+msequad = mse(y, ŷquad)
+r2lin = r2_score(y, ŷlin)
+r2quad = r2_score(y, ŷquad)
+
+# Modeling nonlinear relationship in the Ames Housing dataset

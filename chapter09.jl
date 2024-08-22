@@ -20,6 +20,7 @@ using Plots
 using StatsPlots
 using Statistics
 
+# correlation plot
 begin
     p = @df df corrplot(cols(1:6), size=(800, 700), alpha=0.5, markersize=2);
     plot!(p, 
@@ -71,6 +72,7 @@ function lin_regplot(X, y, model)
     plot!(X, model(X), linewidth=2, color=:black)
 end
 
+# linear regression plot
 begin
     lin_regplot(Xstd, ystd, lr)
     xlabel!("Living area above ground (std)")
@@ -88,6 +90,7 @@ slr(X, y)
 ŷ = slr(X)
 slr.b, slr.w
 
+# linear regression plot
 begin
     lin_regplot(X, y, slr)
     xlabel!("Living area above ground in square feet")
@@ -98,7 +101,7 @@ ransac = RANSACRegression(
     estimator = LinearRegression(),
     max_trials = 100,
     min_samples = 0.95,
-    residual_threshold = nothing,
+    residual_threshold = 65000,
     random_state=123    
 )
 
@@ -110,9 +113,8 @@ begin
     inlier_mask = ransac.inlier_mask_
     outlier_mask = .!inlier_mask
 
-    line_X = 3:10
-    line_y_ransac = ransac(reshape(line_X, :, 1))
-
+    line_ransac = ransac(X[inlier_mask, :])
+    
     # Create the plot
     p = scatter(X[inlier_mask], y[inlier_mask],
                 color=:steelblue, markerstrokecolor=:white,
@@ -122,7 +124,7 @@ begin
              color=:limegreen, markerstrokecolor=:white,
              marker=:square, label="Outliers")
 
-    #plot!(p, line_X, line_y_ransac, color=:black, linewidth=2)
+    plot!(p, X[inlier_mask], line_ransac, color=:black, linewidth=2, label="Ransac Regressor")
 
     xlabel!("Living area above ground in square feet")
     ylabel!("Sale price in U.S. dollars")    
@@ -143,3 +145,86 @@ end
 
 mean_absolute_deviation(y)
 
+using NovaML.ModelSelection
+X = df[:, Not(:SalePrice)] |> Matrix
+y = df[:, :SalePrice]
+
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=123)
+
+slr = LinearRegression()
+slr(Xtrn, ytrn)
+ŷtrn = slr(Xtrn)
+ŷtst = slr(Xtst)
+
+#Residual plots of trn and tst data
+begin       
+    x_max = maximum([maximum(ŷtrn), maximum(ŷtst)])
+    x_min = minimum([minimum(ŷtrn), minimum(ŷtst)])
+    
+    p = plot(layout=(1,2), size=(800, 400), link=:y)
+    
+    scatter!(p[1], ŷtst, ŷtst .- ytst,
+             color=:limegreen, markershape=:square, 
+             markeralpha=0.8, markerstrokecolor=:white,
+             label="Test data")
+    
+    scatter!(p[2], ŷtrn, ŷtrn .- ytrn,
+             color=:steelblue, markershape=:circle, 
+             markeralpha=0.8, markerstrokecolor=:white,
+             label="Training data")
+    
+    ylabel!(p[1], "Residuals")
+    xlabel!(p[1], "Predicted values")
+    xlabel!(p[2], "Predicted values")
+    
+    hline!(p[1], [0], color=:black, linewidth=2, label="")
+    hline!(p[2], [0], color=:black, linewidth=2, label="")
+    
+    xlims!(p[1], (x_min-100, x_max+100))
+    xlims!(p[2], (x_min-100, x_max+100))
+    
+    plot!(p[1], legend=:topleft)
+    plot!(p[2], legend=:topleft)
+    
+    display(p)
+end
+
+using NovaML.Metrics
+msetrn = mse(ytrn, ŷtrn)
+msetst = mse(ytst, ŷtst)
+
+maetrn = mae(ytrn, ŷtrn)
+maetst = mae(ytst, ŷtst)
+
+lasso = Lasso(α=10.)
+lasso(Xtrn, ytrn)
+ŷtrn = lasso(Xtrn)
+ŷtst = lasso(Xtst)
+mse(ytrn, ŷtrn)
+mse(ytst, ŷtst)
+
+using NovaML.Datasets
+X, y = load_boston(return_X_y=true)
+
+lr = LinearRegression()
+lasso = Lasso(α=1.)
+ridge = Ridge(α=100.)
+
+lr(X, y)
+ŷlr = lr(X);
+lasso(X, y)
+ŷlasso = lasso(X);
+ridge(X, y)
+ŷridge = ridge(X);
+
+r2_score(y, ŷlr)
+r2_score(y, ŷlasso)
+r2_score(y, ŷridge)
+
+lr.b, lr.w
+lasso.b, lasso.w
+ridge.b, ridge.w
+
+plot(1:size(X, 2), lr.w, label="linreg")
+plot!(1:size(X, 2), lasso.w, label="lasso")
+plot!(1:size(X, 2), ridge.w, label="ridge")

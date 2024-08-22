@@ -255,7 +255,6 @@ ŷlin = lr(Xfit)
 pr(Xquad, y)
 ŷquad = pr(quadratic(Xfit)) 
 
-
 begin
     scatter(X, y, label="Training points")
     plot!(Xfit, ŷlin, label="Linear fit", linestyle=:dash)
@@ -272,4 +271,38 @@ msequad = mse(y, ŷquad)
 r2lin = r2_score(y, ŷlin)
 r2quad = r2_score(y, ŷquad)
 
-# Modeling nonlinear relationship in the Ames Housing dataset
+
+X = df[df.GrLivArea .< 4000, [:GrLivArea]] |> Matrix .|> float
+y = df[df.GrLivArea .< 4000, :SalePrice] .|> float
+
+X = df[:, [:OverallQual]] |> Matrix .|> float
+y = df[:, :SalePrice] .|> float
+
+regr = LinearRegression()
+
+# create quadratic and cubic features
+quadratic = PolynomialFeatures(degree=2)
+cubic = PolynomialFeatures(degree=3)
+Xquad = quadratic(X)
+Xcubic = cubic(X)
+
+Xfit = (minimum(X)-1:maximum(X)+2)[:, :]
+regr(X, y)
+ŷlin = regr(Xfit)
+r2linear = r2_score(y, regr(X)) |> x -> round(x, digits=3)
+regr(Xquad, y)
+ŷquad = regr(quadratic(Xfit))
+r2quadratic = r2_score(y, regr(Xquad)) |> x -> round(x, digits=3)
+regr(Xcubic, y)
+ŷcubic = regr(cubic(Xfit))
+r2cubic = r2_score(y, regr(Xcubic)) |> x -> round(x, digits=3)
+
+begin
+    scatter(X, y, label="Training points", color=:lightgray)
+    plot!(Xfit, ŷlin, label="Linear (d=1), R2:$r2linear", color=:blue, lw=2, ls=:dot)
+    plot!(Xfit, ŷquad, label="Quadratic (d=2), R2:$r2quadratic", color=:red, lw=2, ls=:solid)
+    plot!(Xfit, ŷcubic, label="Cubic (d=3), R2:$r2cubic", color=:green, lw=2, ls=:dash)
+    xlabel!("Living area above ground in square feet")
+    ylabel!("Sale price in U.S. dollars")
+end
+

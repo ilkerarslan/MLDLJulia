@@ -271,7 +271,6 @@ msequad = mse(y, ŷquad)
 r2lin = r2_score(y, ŷlin)
 r2quad = r2_score(y, ŷquad)
 
-
 X = df[df.GrLivArea .< 4000, [:GrLivArea]] |> Matrix .|> float
 y = df[df.GrLivArea .< 4000, :SalePrice] .|> float
 

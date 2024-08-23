@@ -305,3 +305,54 @@ begin
     ylabel!("Sale price in U.S. dollars")
 end
 
+using NovaML.Tree
+X = df[:, [:GrLivArea]] |> Matrix .|> float
+y = df.SalePrice .|> float
+
+tree = DecisionTreeRegressor(max_depth=3)
+tree(X, y)
+sort_idx = sortperm(vec(X))
+begin
+    lin_regplot(X[sort_idx, :], y[sort_idx], tree)
+    xlabel!("Living area above ground in square feet")
+    ylabel!("Sale price in US dollars")    
+end
+
+using NovaML.Ensemble
+
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, test_size=0.3, random_state=123)
+
+forest = RandomForestRegressor(
+    n_estimators = 1000,
+    criterion = "squared_error",
+    random_state=1
+)
+
+forest(Xtrn, ytrn)
+ŷtrn = forest(Xtrn)
+ŷtst = forest(Xtst)
+
+maetrn = mae(ytrn, ŷtrn)
+maetst = mae(ytst, ŷtst)
+r2trn = r2_score(ytrn, ŷtrn)
+r2tst = r2_score(ytst, ŷtst)
+
+begin
+    x_max = max(maximum(ŷtrn), maximum(ŷtst))
+    x_min = min(minimum(ŷtrn), minimum(ŷtst))
+    
+    p1 = scatter(ŷtst, ŷtst - ytst,
+                 color=:limegreen, marker=:square, markerstrokecolor=:white,
+                 label="Test data", xlabel="Predicted values", ylabel="Residuals")
+    
+    p2 = scatter(ŷtrn, ŷtrn - ytrn,
+                 color=:steelblue, marker=:circle, markerstrokecolor=:white,
+                 label="Training data", xlabel="Predicted values", ylabel="Residuals")
+    
+    for p in (p1, p2)
+        hline!(p, [0], color=:black, linewidth=2, label="")
+        xlims!(p, (x_min-100, x_max+100))
+    end
+    
+    plot(p1, p2, layout=(1,2), size=(700, 300), link=:y)
+end

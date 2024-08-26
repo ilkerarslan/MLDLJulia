@@ -41,9 +41,9 @@ begin
         clim=(-1,1),
         title="Correlation Heatmap",
         size=(800, 700))
-    for i in 1:size(cm,1)
-        for j in 1:size(cm,2)
-            annotate!(j, i, text(round(cm[i,j], digits=2), 8, :black, :center))
+    for i ∈ axes(cm,1)
+        for j ∈ axes(cm,2)
+            annotate!(j, i, text(round(cm[i, j], digits=2), 8, :black, :center))
         end
     end
     plot!(colorbar=false)        

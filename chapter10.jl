@@ -126,5 +126,43 @@ end
 
 plot_silhoutte(km)
 
+km = KMeans(
+    n_clusters=2, 
+    init="k-means++",
+    n_init=10,
+    max_iter=300,
+    tol=1e-04,
+    random_state=123)
+
+km(X)
+ykm = km.labels_
+
+begin
+    scatter(X[ykm.==1, 1], X[ykm.==1, 2],
+            markersize=6, color=:lightgreen,
+            markerstrokecolor=:black, marker=:circle,
+            label="Cluster 1")
+    scatter!(X[ykm.==2, 1], X[ykm.==2, 2],
+             markersize=6, color=:orange,
+             markerstrokecolor=:black, marker=:rect,
+             label="Cluster 2")
+    scatter!(km.cluster_centers_[:, 1],
+             km.cluster_centers_[:, 2],
+             markersize=12, color=:red,
+             marker=:star, label="Centroids")
+    xlabel!("Feature 1")
+    ylabel!("Feature 2")
+end
+
+plot_silhoutte(km)
+
+variables = [:X, :Y, :Z]
+labels = ["ID_0", "ID_1", "ID_2", "ID_3", "ID_4"]
+X = rand(5,3).*10
+
+using DataFrames
+df = DataFrame(X, :auto)
+rename!(df, variables)
 
 
+Vector(df[1, :])

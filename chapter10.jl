@@ -92,58 +92,39 @@ km = KMeans(
     random_state=0)
 
 km(X)
-ykm = km.labels_
-using NovaML.Metrics
-using Distances
-
-cluster_labels = unique(km.labels_)
-n_clusters = length(cluster_labels)
-silhouette_vals = silhouette_samples(X, km.labels_, metric="euclidean")
-yaxlower, yaxupper = 0, 0
-yticks = []
 
 using Statistics
 using ColorSchemes
+using NovaML.Metrics
 
-function plot_silhouette(X::AbstractMatrix, labels::AbstractVector)
-    
-
-    return p
-end
-i, c = 1,1
-
-p = plot(size=(800, 600), 
-             xlabel="Silhouette coefficient", 
-             ylabel="Cluster", 
-             title="Silhouette Plot", 
-             legend=false,
-             xlims=(-0.1, 1.1),  # Extend x-axis slightly
-             yticks=(1:n_clusters, string.(cluster_labels)),
-             yflip=true)
-c_silhouette_vals = silhouette_vals[ykm .== c] |> sort
-
-begin
-    p = plot(size=(800, 600), 
-             xlabel="Silhouette coefficient", 
-             ylabel="Cluster", 
-             title="Silhouette Plot", 
-             legend=false,
-             xlims=(-0.1, 1.1),  # Extend x-axis slightly
-             yticks=(1:n_clusters, string.(cluster_labels)),
-             yflip=true)
-    cluster_labels = sort(unique(ykm))
+function plot_silhoutte(km::KMeans)
+    ykm = km.labels_
+    cluster_labels = sort(unique(km.labels_))
     n_clusters = length(cluster_labels)
-    silhouette_vals = silhouette_samples(X, ykm, metric="euclidean")
-    yaxlower, yaxupper = 0, 0
-
-    i, c = 1,1
-    c_silhouette_vals = silhouette_vals[ykm.==c]
-    sort!(c_silhouette_vals)
-    yaxupper += length(c_silhouette_vals)
-    color = get(ColorSchemes.tab10, i / n_clusters)
-    for (dy,sv) ∈ enumerate(c_silhouette_vals) 
-        plot!([0, i+dy], [sv, i+dy])
-    end
-    plot!()
+    silhouette_vals = silhouette_samples(X, km.labels_, metric="euclidean")
+    δ = 1. / (length(silhouette_vals)+20)
+    yval = 10δ
     
+    p = plot(xlabel="Silhouette coefficient",label="Cluster", title="Silhouette Plot", legend=false, ylims=(0.0, 1.0), xlims=(0.0, 1.0), ylabel="Cluster");
+    for (i, c) in enumerate(cluster_labels)
+        c_silhouette_vals = silhouette_vals[ykm.==c]
+        sort!(c_silhouette_vals)
+        color = get(ColorSchemes.jet, i/n_clusters)
+        for xval in c_silhouette_vals
+            plot!(p, [0, xval], [yval, yval], color=color)
+            yval += δ
+        end
+    end
+    silhouette_avg = mean(silhouette_vals)
+    vline!([silhouette_avg], color=:red, linestyle=:dash, lw=2)
+    
+    start = (1-20δ)/6
+    stop = (1 - 10δ) - (1-20δ)/6
+    
+    yticks!(p, range(start, stop, length=n_clusters), string.(cluster_labels))    
 end
+
+plot_silhoutte(km)
+
+
+

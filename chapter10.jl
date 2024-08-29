@@ -156,13 +156,113 @@ end
 
 plot_silhoutte(km)
 
+
+# Hierarchical clustering
 variables = [:X, :Y, :Z]
 labels = ["ID_0", "ID_1", "ID_2", "ID_3", "ID_4"]
-X = rand(5,3).*10
+
 
 using DataFrames
 df = DataFrame(X, :auto)
 rename!(df, variables)
 
 
-Vector(df[1, :])
+using NovaML.Cluster
+X = rand(5, 3) .* 10
+ac = AgglomerativeClustering(
+    n_clusters=3,
+    metric="euclidean",
+    linkage="complete")
+
+result = ac(X)
+ac.labels_
+
+ac = AgglomerativeClustering(
+    n_clusters=2,
+    metric="euclidean",
+    linkage="complete",
+    compute_distances=true)
+
+result = ac(X)
+ykm = ac.labels_
+
+
+begin
+    scatter(X[ykm.==1, 1], X[ykm.==1, 2],
+            markersize=6, color=:lightgreen,
+            markershape=:square, markerstrokecolor=:black,
+            label="cluster 1")
+    scatter!(X[ykm.==2, 1], X[ykm.==2, 2],
+             markersize=6, color=:orange,
+             markershpe=:circle, markerstrokecolor=:black,
+             label="Cluster 2")
+    scatter!(X[ykm.==3, 1], X[ykm.==3, 2],
+             markersize=6, color=:lightblue,
+             markershape=:utriangle, markerstrokecolor=:black,
+             label="Cluster 3")
+    scatter!(km.cluster_centers_[:, 1],
+             km.cluster_centers_[:, 2],
+             markersize=14, color=:red,
+             markershape=:star5, markerstrokecolor=:black,
+             label="Centroids")
+    xlabel!("Feature 1")
+    ylabel!("Feature 2")
+    plot!(legend=:topright)
+    plot!(size=(800, 600), dpi=300)
+end
+
+
+using Plots
+
+function plot_dendrogram(ac::AgglomerativeClustering)
+    if isempty(ac.children_) || isempty(ac.distances_)
+        error("The AgglomerativeClustering object doesn't have children_ or distances_ attributes. Make sure to set compute_distances=true when creating the object.")
+    end
+
+    n_samples = length(ac.labels_)
+    n_nodes = n_samples * 2 - 1
+    
+    # Initialize the plot
+    p = plot(legend=false, yticks=:none, size=(800, 600))
+
+    # Create a dictionary to store the x and y coordinates of each node
+    node_coords = Dict{Int, Tuple{Float64, Float64}}()
+    
+    # Initialize the leaf nodes
+    for i in 1:n_samples
+        node_coords[i] = (Float64(i), 0.0)
+    end
+
+    # Plot the branches
+    for (i, (left, right)) in enumerate(eachrow(ac.children_))
+        node_id = n_samples + i
+        left_x, left_y = node_coords[left]
+        right_x, right_y = node_coords[right]
+        merged_x = (left_x + right_x) / 2
+        merged_y = ac.distances_[i]
+
+        # Plot the horizontal lines
+        plot!(p, [left_x, left_x], [left_y, merged_y], color=:black)
+        plot!(p, [right_x, right_x], [right_y, merged_y], color=:black)
+        # Plot the vertical line
+        plot!(p, [left_x, right_x], [merged_y, merged_y], color=:black)
+
+        # Store the coordinates of the merged node
+        node_coords[node_id] = (merged_x, merged_y)
+    end
+
+    # Set the y-axis limits
+    ylims!(p, (0, maximum(ac.distances_) * 1.05))
+    
+    # Invert the y-axis
+    yflip!(p)
+
+    # Set labels
+    xlabel!(p, "Sample index")
+    ylabel!(p, "Distance")
+    title!(p, "Dendrogram")
+
+    return p
+end
+
+dendogram = plot_dendrogram(result)

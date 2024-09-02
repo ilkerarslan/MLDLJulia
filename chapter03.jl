@@ -1,6 +1,6 @@
 using Revise
 using DataFrames, StatsBase, LinearAlgebra
-using Random, Plots, StatsBase
+using Random, Plots
 
 # Data
 using NovaML.Datasets
@@ -15,11 +15,10 @@ println("Labels count in y: ", values(StatsBase.countmap(y)))
 println("Labels counts in ytrn: ", values(StatsBase.countmap(ytrn)))
 println("Labels counts in ytst: ", values(StatsBase.countmap(ytst)))
 
-using NovaML.PreProcessing: StandardScaler
+using NovaML.PreProcessing
 stdscaler = StandardScaler()
-stdscaler(Xtrn)
-Xtrnstd = stdscaler(Xtrn)
-Xtststd = stdscaler(Xtst)
+Xtrnstd = stdscaler(Xtrn) # fit and transform
+Xtststd = stdscaler(Xtst) # transform
 
 # Multiclass Perceptron
 using NovaML.MultiClass: MulticlassPerceptron

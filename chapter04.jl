@@ -51,7 +51,7 @@ drop_rows(df)
 # only drop rows where missing appear in specific columns (here: :C)
 dropmissing(df, :C)
 
-using NovaML.Impute: SimpleImputer
+using NovaML.Impute
 impute = SimpleImputer(
     strategy = :mean
 )
@@ -101,19 +101,20 @@ df
 
 newcol = replace(col, labels...)
 
-using NovaML.PreProcessing: LabelEncoder
-lblenc = LabelEncoder()
-lblenc(df.size)
+using NovaML.PreProcessing
+lblencode = LabelEncoder()
+lblencode(df.size)
 labels = ["M", "L", "XL", "M", "L", "M"]
-lbls = lblenc(labels)
-lblenc(lbls, :inverse_transform)
+labels = lblencode(labels)
+lblencode(labels, :inverse)
+
+using NovaML.PreProcessing
 
 labels = ["M", "L", "XL", "M", "L", "M"]
-using NovaML.PreProcessing: OneHotEncoder
+
 ohe = OneHotEncoder()
-ohe(labels)
 onehot = ohe(labels)
-ohe(onehot, :inverse_transform)
+ohe(onehot, :inverse)
 
 # Partitioning a dataset into separate training and test datasets 
 using NovaML.Datasets

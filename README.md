@@ -3,5 +3,3 @@ A reproduction of the codes in the book **Machine Learning with Python and Sciki
 https://fluxml.ai/
 
 https://github.com/ilkerarslan/NovaML.jl
-
-

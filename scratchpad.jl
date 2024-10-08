@@ -1,238 +1,177 @@
-using MLDatasets, DataFrames, Plots, Random
+# This will prompt if neccessary to install everything, including CUDA:
+using Flux, CUDA, Statistics, ProgressMeter
 
-Xtrn, ytrn = MNIST(split=:train)[:]
-Xtst, ytst = MNIST(split=:test)[:]
+# Generate some data for the XOR problem: vectors of length 2, as columns of a matrix:
+noisy = rand(Float32, 2, 1000)                                    # 2×1000 Matrix{Float32}
+truth = [xor(col[1]>0.5, col[2]>0.5) for col in eachcol(noisy)]   # 1000-element Vector{Bool}
+
+# Define our model, a multi-layer perceptron with one hidden layer of size 3:
+model = Chain(
+    Dense(2 => 3, tanh),   # activation function inside layer
+    BatchNorm(3),
+    Dense(3 => 2)) |> gpu        # move model to GPU, if available
+
+# The model encapsulates parameters, randomly initialised. Its initial output is:
+out1 = model(noisy |> gpu) |> cpu                                 # 2×1000 Matrix{Float32}
+probs1 = softmax(out1)      # normalise to get probabilities
+
+# To train the model, we use batches of 64 samples, and one-hot encoding:
+target = Flux.onehotbatch(truth, [true, false])                   # 2×1000 OneHotMatrix
+loader = Flux.DataLoader((noisy, target) |> gpu, batchsize=64, shuffle=true);
+# 16-element DataLoader with first element: (2×64 Matrix{Float32}, 2×64 OneHotMatrix)
+
+optim = Flux.setup(Flux.Adam(0.01), model)  # will store optimiser momentum, etc.
+
+# Training loop, using the whole data set 1000 times:
+losses = []
+@showprogress for epoch in 1:1_000
+    for (x, y) in loader
+        loss, grads = Flux.withgradient(model) do m
+            # Evaluate model and loss inside gradient context:
+            y_hat = m(x)
+            Flux.logitcrossentropy(y_hat, y)
+        end
+        Flux.update!(optim, model, grads[1])
+        push!(losses, loss)  # logging, outside gradient context
+    end
+end
+
+# or 
+@showprogress for epoch ∈ 1:1_000
+    Flux.train!(model, loader, optim) do m, x, y 
+        ŷ = m(x)
+        Flux.logitcrossentropy(ŷ, y)
+    end
+end
+
+
+optim # parameters, momenta and output have all changed
+out2 = model(noisy |> gpu) |> cpu  # first row is prob. of true, second row p(false)
+probs2 = softmax(out2)      # normalise to get probabilities
+mean((probs2[1,:] .> 0.5) .== truth)  # accuracy 94% so far!
+
+using Plots  # to draw the above figure
+begin
+    p_true = scatter(noisy[1,:], noisy[2,:], zcolor=truth, title="True classification", legend=false)
+    p_raw =  scatter(noisy[1,:], noisy[2,:], zcolor=probs1[1,:], title="Untrained network", label="", clims=(0,1))
+    p_done = scatter(noisy[1,:], noisy[2,:], zcolor=probs2[1,:], title="Trained network", legend=false)
+    
+    plot(p_true, p_raw, p_done, layout=(1,3), size=(1000,330))    
+end
 
 begin
-    # Create a 2x5 grid of plots
-    plot_array = Array{Plots.Plot}(undef, 2, 5)
-    
-    for i in 0:9
-        # Find the first instance of digit i
-        idx = findfirst(==(i), ytrn)
-        
-        # Extract, reshape, and transpose the image
-        img = permutedims(Xtrn[:, :, idx], (2, 1))
-        
-        # Create a heatmap for the digit
-        p = heatmap(img, 
-                    aspect_ratio=:equal, 
-                    c=:grays, 
-                    axis=false, 
-                    colorbar=false, 
-                    title="Digit $i",
-                    yflip=true)  # Flip the y-axis to match Python's imshow
-        
-        # Store the plot in our array
-        plot_array[fld(i, 5) + 1, rem(i, 5) + 1] = p
-    end
-    
-    # Combine all plots into a single figure
-    final_plot = plot(plot_array..., layout=(2, 5), size=(800, 400))
-    
-    # Display the plot
-    display(final_plot)
+    plot(losses; xaxis=(:log10, "iteration"),
+         yaxis="loss", label="per batch")
+    n = length(loader)
+    plot!(n:n:length(losses), mean.(Iterators.partition(losses, n)), label="epoch mean", dpi=200)
 end
 
-begin
-    # Create a 5x5 grid of plots
-    plot_array = Array{Plots.Plot}(undef, 5, 5)
-    
-    # Find indices of all '7' digits
-    seven_indices = findall(==(7), ytrn)
-    
-    for i in 1:25
-        # Extract and reshape the image
-        img = permutedims(Xtrn[:, :, seven_indices[i]], (2,1))
-        
-        # Create a heatmap for the digit
-        p = heatmap(img, 
-                    aspect_ratio=:equal, 
-                    c=:grays, 
-                    axis=false, 
-                    colorbar=false,
-                    title="",
-                    yflip=true)  # Flip the y-axis to correct orientation
-        
-        # Store the plot in our array
-        plot_array[fld(i-1, 5) + 1, rem(i-1, 5) + 1] = p
-    end
-    
-    # Combine all plots into a single figure
-    final_plot = plot(plot_array..., layout=(5, 5), size=(800, 800), link=:all)
-    
-    # Display the plot
-    display(final_plot)
-end
+#Fitting a line 
+using Flux
+actual(x) = 4x + 2
+xtrn, xtst = hcat(0:5...), hcat(0:10...)
+ytrn, ytst = actual.(xtrn), actual.(xtst)
 
-Xtrn = reshape(Xtrn, :, size(Xtrn, 3))
-Xtst = reshape(Xtst, :, size(Xtst, 3))
-
-valindex = 1:5000
-Xtrn = Xtrn[:, Not(valindex)]
-ytrn = ytrn[Not(valindex)]
-
-Xval = Xtrn[:, valindex]
-yval = ytrn[valindex]
-
-sigmoid(z) = 1. ./ (1. .+ exp.(-z))
-
-function int_to_onehot(y, nclass)
-    ary = zeros(Float32, nclass, size(y, 1))
-    for (i, label) ∈ enumerate(y)
-        ary[label+1, i] = 1
-    end
-    return ary
-end
-
-mutable struct NeuralNetMLP
-    n_out::Int
-    wʰ::Matrix{Float64}
-    bʰ::Vector{Float64}
-    wᵒ::Matrix{Float64}
-    bᵒ::Vector{Float64}
-
-    function NeuralNetMLP(;n_in::Int, n_hid::Int, n_out::Int, random_seed::Int=123)
-        rng = MersenneTwister(random_seed)
-        
-        wʰ = randn(rng, Float64, (n_hid, n_in)) .* sqrt(2.0 / (n_in + n_hid))
-        bʰ = zeros(n_hid)
-        
-        wᵒ = randn(rng, Float64, (n_out, n_hid)) .* sqrt(2.0 / (n_hid + n_out))
-        bᵒ = zeros(n_out)
-        
-        new(n_out, wʰ, bʰ, wᵒ, bᵒ)
-    end
-end
-    
-function (nn::NeuralNetMLP)(X::Matrix{Float32})
-    zʰ = nn.wʰ * X .+ nn.bʰ
-    aʰ = sigmoid.(zʰ)
-    
-    zᵒ = nn.wᵒ * aʰ .+ nn.bᵒ
-    aᵒ = sigmoid.(zᵒ)
-    
-    #println("Size ah: $(size(aʰ))")
-    #println("Size ao: $(size(aᵒ))")
-    return aʰ, aᵒ
-end
-
-function (nn::NeuralNetMLP)(X::Matrix{Float32}, aʰ::Matrix{Float64}, aᵒ::Matrix{Float64}, y::Vector{Int})
-    yoh = int_to_onehot(y, nn.n_out)
-    
-    # Output layer
-    ∂L∂aᵒ = 2 .* (aᵒ .- yoh) ./ size(X, 2)
-    ∂aᵒ∂zᵒ = aᵒ .* (1 .- aᵒ)
-    δᵒ = ∂L∂aᵒ .* ∂aᵒ∂zᵒ
-
-    ∂L∂wᵒ = δᵒ * aʰ'
-    ∂L∂bᵒ = vec(sum(δᵒ, dims=2))
-
-    # Hidden layer
-    ∂L∂aʰ = nn.wᵒ' * δᵒ
-    ∂aʰ∂zʰ = aʰ .* (1 .- aʰ)
-    δʰ = ∂L∂aʰ .* ∂aʰ∂zʰ
-    ∂L∂wʰ = δʰ * X'
-    ∂L∂bʰ = vec(sum(δʰ, dims=2))
-    
-    return (∂L∂wᵒ, ∂L∂bᵒ, ∂L∂wʰ, ∂L∂bʰ)    
-end
-
-model = NeuralNetMLP(
-    n_in = 28*28,
-    n_hid = 50,
-    n_out = 10,
-)
-
-num_epochs = 50
-minibatch_size = 100
-
-function minibatch_generator(X::Matrix{Float32}, 
-                             y::Vector{Int}, 
-                             minibatch_size::Int)
-    indices = shuffle(1:size(X, 1))
-    batches = Iterators.partition(indices, minibatch_size)
-    return ((X[:, batch], y[batch]) for batch in batches)
-end
-
-for i in 1:num_epochs
-    minibatch_gen = minibatch_generator(Xtrn, ytrn, minibatch_size)
-    for (Xtrn_mini, ytrn_mini) in minibatch_gen
-        println("Minibatch X shape: ", size(Xtrn_mini))
-        println("Minibatch y shape: ", size(ytrn_mini))
-        break
-    end
-    break    
-end
+model = Dense(1 => 1)
+model.weight
+model.bias
+predict = Dense(1 => 1)
+predict(xtrn)
 
 using Statistics
+loss(model, x, y) = mean(abs2.(model(x) .- y))
+loss(predict, xtrn, ytrn)
 
-function mse_loss(y, probs, nclass=10)
-    yohe = int_to_onehot(y, nclass)
-    ε = yohe .- probs
-    return mean(ε.^2)    
+opt = Descent()
+data = [(xtrn, ytrn)]
+predict.weight
+predict.bias
+Flux.train!(loss, predict, data, opt)
+loss(predict, xtrn, ytrn)
+predict.weight, predict.bias
+
+for epoch in 1:200
+    Flux.train!(loss, predict, data, opt)
+end
+loss(predict, xtrn, ytrn)
+predict.weight, predict.bias
+predict(xtst)
+ytst
+
+# Gradients and Layers 
+using Flux 
+f(x) = 3x^2 + 2x + 1;
+df(x) = Flux.gradient(f, x)[1]
+df(2)
+d2f(x) = Flux.gradient(df, x)[1]
+d2f(2)
+
+f(x, y) = sum((x .- y).^2)
+gradient(f, [2,1], [2, 0])
+nt = (a=[2,1], b=[2,0], c=tanh)
+g(x::NamedTuple) = sum(abs2, x.a .- x.b)
+g(nt)
+dg_nt = gradient(g, nt)[1]
+gradient((x,y) -> sum(abs2, x.a ./ y .- x.b), nt, [1,2])
+
+gradient(nt, [1,2]) do x, y 
+    z = x.a ./ y 
+    sum(abs2, z .- x.b)
+end
+Flux.withgradient(g, nt)
+
+predict(W, b, x) = W*x .+ b 
+function loss(W, b, x, y)
+    ŷ = predict(W, b, x)
+    sum((y .- ŷ).^2)
+end
+x, y = rand(5), rand(2)
+w = rand(2, 5)
+b = rand(2)
+loss(w, b, x, y)
+∂w, ∂b = gradient((w,b) -> loss(w, b, x, y), w, b)
+w .-= 0.1 .* ∂w 
+loss(w, b, x, y)
+
+w1 = rand(3, 5)
+b1 = rand(3)
+layer1(x) = w1 * x .+ b1
+w2 = rand(2,3)
+b2 = rand(2)
+layer2(x) = w2 * x .+ b2
+model(x) = layer2(sigmoid.(layer1(x)))
+model(rand(5))
+function linear(in, out)
+    w = randn(out, in)
+    b = randn(out)
+    x -> w*x .+ b 
+end
+linear1 = linear(5,3)
+linear2 = linear(3,2)
+model(x) = linear2(sigmoid.(linear1(x)))
+model(rand(5))
+struct Affine
+    w 
+    b
 end
 
-accuracy(y, ŷ) = sum(y .== ŷ) / length(y)
+Affine(in::Integer, out::Integer) = Affine(randn(out,in), zeros(out))
 
-function compute_mse_and_acc(model::NeuralNetMLP, X, y;
-                             nclass=10, minibatch_size=100)
-    mse, correct_pred, num_examples = 0.0, 0, 0
-    minibatch_gen = minibatch_generator(Xval, yval, minibatch_size)
-    i = 0
-    nclass=10
-    for (_, (features, targets)) ∈ enumerate(minibatch_gen)
-        _, probas = model(features)    
-        predicted_labels = getindex.(vec(argmax(probas, dims=1)), 1) .- 1
-        onehot_targets = int_to_onehot(targets, nclass)
-        loss = mean((onehot_targets .- probas).^2)
-        correct_pred += sum((predicted_labels .== targets))
-        num_examples += length(targets)
-        mse += loss 
-        i += 1        
-    end
-    mse /= i 
-    acc = correct_pred/num_examples
-    return mse, acc
-end
+# Overload call, so the object can be used as a function
+(m::Affine)(x) = m.w * x .+ m.b
+a = Affine(10, 5)
+a(rand(10))
 
-mse, acc = compute_mse_and_acc(model, Xval, yval)
+layers = [Dense(10 => 5, relu), Dense(5 => 2), softmax]
+model(x) = foldl((x, m)-> m(x), layers, init=x)
+model(Float32.(rand(10)))
 
-function train(model, Xtrn, ytrn, Xval, yval, num_epochs; η=0.1)
-    epoch_loss = []
-    epoch_train_acc = []
-    epoch_valid_acc = []
+model2 = Chain(
+    Dense(10 => 5, relu),
+    Dense(5 => 2),
+    softmax)
+model2(rand(10))
+m = Dense(5 => 2) ∘ Dense(10 => 5, σ)
+m(rand(10))
 
-    for e in 1:num_epochs
-        minibatch_gen = minibatch_generator(Xtrn, ytrn, minibatch_size)
-        for (Xtrn_mini, ytrn_mini) in minibatch_gen
-            ah, aout = model(Xtrn_mini)
-            ∂L∂wᵒ, ∂L∂bᵒ, ∂L∂wʰ, ∂L∂bʰ = model(Xtrn_mini, ah, aout, ytrn_mini)
-
-            model.wʰ -= η * ∂L∂wʰ
-            model.bʰ -= η * ∂L∂bʰ
-            model.wᵒ -= η * ∂L∂wᵒ
-            model.bᵒ -= η * ∂L∂bᵒ
-        end
-
-        train_mse, train_acc = compute_mse_and_acc(model, Xtrn, ytrn)
-        valid_mse, valid_acc = compute_mse_and_acc(model, Xval, yval)
-
-        train_acc, valid_acc = train_acc*100, valid_acc*100
-        push!(epoch_train_acc, train_acc)
-        push!(epoch_valid_acc, valid_acc)
-        push!(epoch_loss, train_mse)
-
-        println("Epoch: $(lpad(e, 3, '0'))/$(lpad(num_epochs, 3, '0')) " *
-        "| Train MSE: $(round(train_mse, digits=2)) " *
-        "| Train Acc: $(round(train_acc, digits=2))% " *
-        "| Valid MSE: $(round(valid_mse, digits=2)) " *
-        "| Valid Acc: $(round(valid_acc, digits=2))%")
-    end
-    return epoch_loss, epoch_train_acc, epoch_valid_acc
-end
-
-Random.seed!(123)
-epoch_loss, epoch_train, epoch_valid_acc = train(model, Xtrn, 
-                                                 ytrn, Xval, 
-                                                 yval, 300, η=0.1)
+m = Chain(x -> x^2, x -> x+1)

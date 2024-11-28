@@ -1,8 +1,8 @@
 function ensemble_error(n_classifier::Int, ϵ::Float64)
-    k_start = ceil(Int, n_classifier/2)
-    probs = [binomial(n_classifier, k)*ϵ^k*(1-ϵ)^(n_classifier-k)
+    k_start = ceil(Int, n_classifier / 2)
+    probs = [binomial(n_classifier, k) * ϵ^k * (1 - ϵ)^(n_classifier - k)
              for k ∈ k_start:n_classifier]
-    return sum(probs) 
+    return sum(probs)
 end
 
 ensemble_error(11, 0.25)
@@ -13,7 +13,7 @@ ens_errors = [ensemble_error(11, ϵ) for ϵ ∈ error_range]
 using Plots
 begin
     plot(error_range, ens_errors, label="Ensemble error", linewidth=2)
-    plot!(error_range, error_range, linestyle=:dash, label="Base Error", linewidth=2)    
+    plot!(error_range, error_range, linestyle=:dash, label="Base Error", linewidth=2)
     xlabel!("Base error")
     ylabel!("Base/Ensemble Error")
 end
@@ -25,8 +25,8 @@ argmax(countmap(arr, w))
 
 using Statistics, StatsBase
 ex = [0.9 0.1;
-      0.8 0.2;
-      0.4 0.6]
+    0.8 0.2;
+    0.4 0.6]
 
 w = [0.2, 0.2, 0.6]
 
@@ -39,15 +39,14 @@ using Revise
 # Assume we have X_train, y_train, X_test, y_test
 using NovaML.Datasets: load_iris
 iris = load_iris()
-X = iris["data"][51:150, [2,3]] 
-y = (iris["target"][51:150] .== 2) .|> Int 
+X = iris["data"][51:150, [2, 3]]
+y = (iris["target"][51:150] .== 2) .|> Int
 
 using NovaML.ModelSelection: train_test_split
-Xtrn, Xtst, ytrn, ytst = train_test_split(X, y, 
-                                          test_size=0.5, 
-                                          random_state=1,
-                                          stratify=y)
-
+Xtrn, Xtst, ytrn, ytst = train_test_split(X, y,
+    test_size=0.5,
+    random_state=1,
+    stratify=y)
 
 # Create base classifiers
 using NovaML.LinearModel
@@ -88,7 +87,7 @@ begin
     using NovaML.ModelSelection: cross_val_score
     clf_labels = ["Logistic regression", "Decision tree", "KNN"]
     println("10-fold cross validation")
-  
+
     for (clf, label) ∈ zip([pipe1, clf2, pipe3], clf_labels)
         scores = cross_val_score(
             clf, Xtrn, ytrn,
@@ -96,7 +95,7 @@ begin
             scoring=roc_auc_score
         )
         println("ROC AUC: $(round(mean(scores), digits=2)) (±$(round(std(scores), digits=2))) [$label]")
-    end        
+    end
 end
 
 vc = VotingClassifier(
@@ -108,7 +107,7 @@ push!(clf_labels, "Majority voting")
 all_clf = [pipe1, clf2, pipe3, vc]
 for (clf, label) ∈ zip(all_clf, clf_labels)
     scores = cross_val_score(
-        clf, Xtrn, ytrn, cv=10, 
+        clf, Xtrn, ytrn, cv=10,
         scoring=roc_auc_score
     )
     mn, st = mean(scores), std(scores)
@@ -123,8 +122,8 @@ colors = [:black, :orange, :blue, :green]
 linestyles = [:solid, :dash, :dashdot, :dot, :dashdotdot]
 
 p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
-         title="Receiver Operating Characteristic (ROC) Curve",
-         legend=:bottomright);
+    title="Receiver Operating Characteristic (ROC) Curve",
+    legend=:bottomright);
 
 for (clf, label, clr, ls) ∈ zip(all_clf, clf_labels, colors, linestyles)
     clf(Xtrn, ytrn)
@@ -137,23 +136,23 @@ end
 plot!(p, [0, 1], [0, 1], color=:gray, linestyle=:dash, linewidth=2, label="Random");
 display(p)
 
-begin    
+begin
     sc = StandardScaler()
     Xtrnstd = sc(Xtrn)
     Xtststd = sc(Xtst)
 
     # Set up the plot
     len = 300
-    
-    p = plot(layout=(2,2), size=(800,600))
 
-    x1min, x1max = minimum(Xtrnstd[:, 1])-1, maximum(Xtrnstd[:, 1])+1
-    x2min, x2max = minimum(Xtrnstd[:, 2])-1, maximum(Xtrnstd[:, 2])+1
+    p = plot(layout=(2, 2), size=(800, 600))
+
+    x1min, x1max = minimum(Xtrnstd[:, 1]) - 1, maximum(Xtrnstd[:, 1]) + 1
+    x2min, x2max = minimum(Xtrnstd[:, 2]) - 1, maximum(Xtrnstd[:, 2]) + 1
     x1range = range(x1min, x1max, length=len)
     x2range = range(x2min, x2max, length=len)
 
     # Plot for each classifier
-    for (i, model, tt) in zip(1:4, all_clf, clf_labels)        
+    for (i, model, tt) in zip(1:4, all_clf, clf_labels)
         # Train the model
         model(Xtrnstd, ytrn)
 
@@ -161,12 +160,12 @@ begin
         z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
 
         # Plot
-        contourf!(p[i], x1range, x2range, z, 
-                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
-        scatter!(p[i], Xtrnstd[ytrn.==0, 1], Xtrnstd[ytrn.==0, 2], 
-                 color=:blue, marker=:utriangle, label="Class 0")
-        scatter!(p[i], Xtrnstd[ytrn.==1, 1], Xtrnstd[ytrn.==1, 2], 
-                 color=:green, marker=:circle, label="Class 1")
+        contourf!(p[i], x1range, x2range, z,
+            colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrnstd[ytrn.==0, 1], Xtrnstd[ytrn.==0, 2],
+            color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrnstd[ytrn.==1, 1], Xtrnstd[ytrn.==1, 2],
+            color=:green, marker=:circle, label="Class 1")
         plot!(p[i], title=tt, legend=false)
     end
     # Display the plot
@@ -177,7 +176,7 @@ end
 using NovaML.Datasets
 wine = load_wine()
 X, y = wine["data"], wine["target"]
-X = X[:, [1, end-1]]
+X = X[:, [1, end - 1]]
 idx = y .!= 1
 X, y = X[idx, :], y[idx]
 
@@ -220,17 +219,17 @@ Training set: $acctrn
 testing set : $acctst")
 
 using Plots
-begin    
-    len = 300    
-    p = plot(layout=(1,2), size=(800,600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
+begin
+    len = 300
+    p = plot(layout=(1, 2), size=(800, 600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
 
-    x1min, x1max = minimum(Xtrn[:, 1])-1, maximum(Xtrn[:, 1])+1
-    x2min, x2max = minimum(Xtrn[:, 2])-1, maximum(Xtrn[:, 2])+1
+    x1min, x1max = minimum(Xtrn[:, 1]) - 1, maximum(Xtrn[:, 1]) + 1
+    x2min, x2max = minimum(Xtrn[:, 2]) - 1, maximum(Xtrn[:, 2]) + 1
     x1range = range(x1min, x1max, length=len)
     x2range = range(x2min, x2max, length=len)
 
     # Plot for each classifier
-    for (i, model, tt) in zip(1:2, [tree, bag], ["Decision tree", "Bagging"])        
+    for (i, model, tt) in zip(1:2, [tree, bag], ["Decision tree", "Bagging"])
         # Train the model
         model(Xtrn, ytrn)
 
@@ -238,12 +237,12 @@ begin
         z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
 
         # Plot
-        contourf!(p[i], x1range, x2range, z, 
-                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
-        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2], 
-                 color=:blue, marker=:utriangle, label="Class 0")
-        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2], 
-                 color=:green, marker=:circle, label="Class 1")
+        contourf!(p[i], x1range, x2range, z,
+            colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2],
+            color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2],
+            color=:green, marker=:circle, label="Class 1")
         plot!(p[i], title=tt, legend=false)
     end
     display(p)
@@ -262,19 +261,19 @@ roc_auc = auc(fpr, tpr)
 begin
     colors = [:black, :orange, :blue, :green]
     linestyles = [:solid, :dash, :dashdot, :dot, :dashdotdot]
-    
+
     p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
-             title="Receiver Operating Characteristic (ROC) Curve",
-             legend=:bottomright);
+        title="Receiver Operating Characteristic (ROC) Curve",
+        legend=:bottomright)
     models = [tree, bag]
     linestyles = [:solid, :dash]
-    labels=[:tree, :bag]
+    labels = [:tree, :bag]
     p = plot(xlabel="False Positive Rate", ylabel="True Positive Rate",
-             title="Receiver Operating characteristic (ROC) Curve",
-             legend=:bottomright)
-    for (clf, lbl, ls) ∈ zip(models, labels, linestyles) 
+        title="Receiver Operating characteristic (ROC) Curve",
+        legend=:bottomright)
+    for (clf, lbl, ls) ∈ zip(models, labels, linestyles)
         clf(Xtrn, ytrn)
-        ŷ = clf(Xtst, type=:probs)[:,2]
+        ŷ = clf(Xtst, type=:probs)[:, 2]
         fpr, tpr, _ = roc_curve(ytst, ŷ)
         roc_auc = auc(fpr, tpr)
         plot!(p, fpr, tpr, linestyle=ls, label="$lbl (AUC:$(round(roc_auc, digits=2)))")
@@ -287,13 +286,13 @@ end
 using Statistics
 y = Int[1, 1, 1, -1, -1, -1, 1, 1, 1, -1]
 ŷ = Int[1, 1, 1, -1, -1, -1, -1, -1, -1, -1]
-correct = (y.==ŷ)
+correct = (y .== ŷ)
 weights = fill(0.1, 10)
 ε = mean(.!correct)
-αⱼ = 0.5 * log((1-ε)/ε)
-w_correct = 0.1 * exp(-αⱼ*1*1)
-w_wrong = 01 * exp(-αⱼ*-1*1)
-weights = ifelse.(correct.==1, w_correct, w_wrong)
+αⱼ = 0.5 * log((1 - ε) / ε)
+w_correct = 0.1 * exp(-αⱼ * 1 * 1)
+w_wrong = 01 * exp(-αⱼ * -1 * 1)
+weights = ifelse.(correct .== 1, w_correct, w_wrong)
 weights ./= sum(weights)
 
 using NovaML.Ensemble: AdaBoostClassifier
@@ -322,16 +321,16 @@ accuracy_score(ytrn, ŷtrn)
 accuracy_score(ytst, ŷtst)
 
 begin
-    len = 300    
-    p = plot(layout=(1,2), size=(800,600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
+    len = 300
+    p = plot(layout=(1, 2), size=(800, 600), xlabel="od280_od315_of_diluted_wines", ylabel="alcohol")
 
-    x1min, x1max = minimum(Xtrn[:, 1])-1, maximum(Xtrn[:, 1])+1
-    x2min, x2max = minimum(Xtrn[:, 2])-1, maximum(Xtrn[:, 2])+1
+    x1min, x1max = minimum(Xtrn[:, 1]) - 1, maximum(Xtrn[:, 1]) + 1
+    x2min, x2max = minimum(Xtrn[:, 2]) - 1, maximum(Xtrn[:, 2]) + 1
     x1range = range(x1min, x1max, length=len)
     x2range = range(x2min, x2max, length=len)
 
     # Plot for each classifier
-    for (i, model, tt) in zip(1:2, [tree, ada], ["Decision tree", "AdaBoost"])        
+    for (i, model, tt) in zip(1:2, [tree, ada], ["Decision tree", "AdaBoost"])
         # Train the model
         model(Xtrn, ytrn)
 
@@ -339,12 +338,12 @@ begin
         z = [model([x1 x2])[1] for x2 in x2range, x1 in x1range]
 
         # Plot
-        contourf!(p[i], x1range, x2range, z, 
-                  colorbar=false, color=[:red, :lightblue], alpha=0.25)
-        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2], 
-                 color=:blue, marker=:utriangle, label="Class 0")
-        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2], 
-                 color=:green, marker=:circle, label="Class 1")
+        contourf!(p[i], x1range, x2range, z,
+            colorbar=false, color=[:red, :lightblue], alpha=0.25)
+        scatter!(p[i], Xtrn[ytrn.==0, 1], Xtrn[ytrn.==0, 2],
+            color=:blue, marker=:utriangle, label="Class 0")
+        scatter!(p[i], Xtrn[ytrn.==1, 1], Xtrn[ytrn.==1, 2],
+            color=:green, marker=:circle, label="Class 1")
         plot!(p[i], title=tt, legend=false)
     end
     display(p)
@@ -366,10 +365,10 @@ mse(y, ŷ)
 # Gradient Boosting
 using NovaML.Ensemble: GradientBoostingClassifier
 gbc = GradientBoostingClassifier(
-        n_estimators=1000,
-        learning_rate=0.01,
-        max_depth=4,
-        random_state=1)
+    n_estimators=1000,
+    learning_rate=0.01,
+    max_depth=4,
+    random_state=1)
 gbc(Xtrn, ytrn)
 ŷtrn = gbc(Xtrn)
 ŷtst = gbc(Xtst)
